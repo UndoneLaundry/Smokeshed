@@ -9,3 +9,6 @@ __pycache__/
 
 # Node
 node_modules/
+
+# Raw data downloads: too large to commit
+data/raw/
