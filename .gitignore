@@ -15,3 +15,6 @@ data/raw/
 
 # Local project rules for Claude Code
 CLAUDE.md
+
+# Local Claude Code settings
+.claude/settings.json
