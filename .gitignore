@@ -12,3 +12,6 @@ node_modules/
 
 # Raw data downloads: too large to commit
 data/raw/
+
+# Local project rules for Claude Code
+CLAUDE.md
