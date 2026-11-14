@@ -35,7 +35,11 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--page); color: var(--ink);
          font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { padding: 12px 16px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  header { position: relative; padding: 12px 60px 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  #tour-help { position: absolute; right: 16px; top: 14px; width: 34px; height: 34px; padding: 0; border-radius: 50%;
+               font-weight: 700; font-size: 16px; }
+  .help { margin: 6px 0 0; font-size: 13px; color: var(--ink-2); }
+  .help b { color: var(--ink); font-weight: 600; }
   h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
   h1 span { color: var(--accent); }
   .tag { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
@@ -64,6 +68,7 @@
   .map-legend { padding: 6px 9px; line-height: 1.6; }
   .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f16913;
                      border: 1px solid #fff; vertical-align: -1px; margin-right: 5px; }
+  .map-legend .line { display: inline-block; width: 14px; height: 3px; background: #c2410c; vertical-align: 3px; margin-right: 4px; }
   .map-legend .rect { display: inline-block; width: 12px; height: 9px; border: 2px dashed #c2410c; vertical-align: -1px; margin-right: 4px; }
   .box-label { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-size: 12px; font-weight: 600; box-shadow: none; }
   .path-label { background: #c2410c; color: #fff; border: 0; font-size: 12px; font-weight: 600; box-shadow: none; }
@@ -128,33 +133,39 @@
 <header>
   <h1>Smoke<span>shed</span></h1>
   <p class="tag">Is it burning near you right now, and is that normal? NASA fire satellites, harmonized from 2001 to today.</p>
+  <button type="button" id="tour-help" aria-label="Take the guided tour" title="Take the guided tour">?</button>
 </header>
 
 <main>
   <section id="where" aria-label="Choose a place">
+    <div data-tour="place">
     <form id="search">
       <input id="q" type="search" placeholder="Search a city, or type lat, lon" aria-label="City or latitude, longitude">
       <button class="primary" type="submit">Show</button>
     </form>
-    <div class="chips">Try:
+    <div class="chips" style="margin-top:8px">Try:
       <button type="button" data-lat="1.352" data-lon="103.82" data-name="Singapore">Singapore</button>
       <button type="button" data-lat="18.79" data-lon="98.98" data-name="Chiang Mai">Chiang Mai</button>
       <button type="button" data-lat="34.05" data-lon="-118.24" data-name="Los Angeles">Los Angeles</button>
       <button type="button" data-lat="-3.12" data-lon="-60.02" data-name="Manaus">Manaus</button>
       <button type="button" data-lat="-33.87" data-lon="151.21" data-name="Sydney">Sydney</button>
     </div>
-    <div id="map" role="application" aria-label="Map: click anywhere to check it"></div>
+    </div>
+    <div id="map" data-tour="map" role="application" aria-label="Map: click anywhere to check it"></div>
   </section>
 
   <section id="answer" aria-live="polite">
     <p class="eyebrow" id="place">Loading…</p>
 
     <!-- 1. Right now -->
-    <div class="status" id="status"></div>
-    <p class="sentence" id="now-sentence"></p>
-    <div class="week" id="week" aria-hidden="true"></div>
-    <div class="week-days" id="week-days" aria-hidden="true"></div>
-    <div class="callout" id="singapore" hidden>
+    <div data-tour="status">
+      <div class="status" id="status"></div>
+      <p class="sentence" id="now-sentence"></p>
+      <div class="week" id="week" aria-hidden="true"></div>
+      <div class="week-days" id="week-days" aria-hidden="true"></div>
+      <p class="help" id="help-now"></p>
+    </div>
+    <div class="callout" id="singapore" data-tour="singapore" hidden>
       <p id="warn"></p>
       <p id="air"></p>
     </div>
@@ -171,10 +182,13 @@
         </span>
       </span>
       <span>Years: <select id="from" aria-label="From year"></select> to <select id="to" aria-label="To year"></select></span>
-      <button id="csv" type="button">Download CSV</button>
+      <button id="csv" type="button" data-tour="csv">Download CSV</button>
     </div>
-    <div id="calendar"></div>
-    <div id="legend"></div>
+    <div data-tour="calendar">
+      <p class="help" style="margin:0 0 8px">Each square is one month. <b>Darker = more fires.</b> Hover a square for the number.</p>
+      <div id="calendar"></div>
+      <div id="legend"></div>
+    </div>
 
     <details>
       <summary>How the numbers are made</summary>
@@ -317,9 +331,14 @@ async function writeNow(cells) {
   const count = week.reduce((a, b) => a + b, 0);
   const normal = normalFor(series, 7);
   const st = STATUS[judge(count, normal)];
+  const monthName = MONTHS_LONG[new Date(now.through + "T00:00:00Z").getUTCMonth()];
   document.getElementById("status").innerHTML =
     `<span class="icon" style="background:${st.color}" aria-hidden="true">${st.icon}</span>`
-    + `<b>${st.label}</b><span>· fires, ${dayLabel(now.days[0])} to ${dayLabel(now.through)}</span>`;
+    + `<b>${st.label}</b><span>· last 7 days (${dayLabel(now.days[0])} to ${dayLabel(now.through)}) vs. a normal ${monthName} week</span>`;
+  document.getElementById("help-now").innerHTML =
+    `<b>Hotspot</b> = a spot where a NASA satellite detected an active fire. `
+    + (isSingapore() ? `<b>Smokeshed</b> = the areas whose fire smoke reaches Singapore's air.`
+                     : `"Normal" = the usual for ${monthName}, 2001 to last year.`);
   document.getElementById("now-sentence").textContent =
     nowSentence(count, normal, isSingapore() ? "in Singapore's smokeshed" : "in this area");
   drawWeek(week);
@@ -371,9 +390,11 @@ async function writeSingaporeAir() {
     const vals = Object.values(latest.readings.pm25_one_hourly);
     const pm = vals.reduce((a, b) => a + b, 0) / vals.length;
     // NEA's 1-hour PM2.5 bands
-    const band = pm <= 55 ? "Band I (Normal)" : pm <= 150 ? "Band II (Elevated)" : pm <= 250 ? "Band III (High)" : "Band IV (Very high)";
+    const band = pm <= 55 ? "Band I: Normal (0–55)" : pm <= 150 ? "Band II: Elevated (56–150)"
+               : pm <= 250 ? "Band III: High (151–250)" : "Band IV: Very high (251+)";
     const time = latest.timestamp.slice(11, 16);
-    el.innerHTML = `<strong>Singapore's air now:</strong> PM2.5 ${Math.round(pm)} µg/m³ at ${time}, ${band}. Source: NEA via data.gov.sg.`;
+    el.innerHTML = `<strong>Singapore's air now:</strong> ${Math.round(pm)} µg/m³ of PM2.5 (fine smoke and dust particles) `
+      + `at ${time}, ${band}. Source: NEA via data.gov.sg.`;
   } catch {
     el.textContent = "Singapore's live air reading is unavailable right now (data.gov.sg).";
   }
@@ -417,7 +438,7 @@ function drawCalendar() {
   const html = ['<div></div>', ...MONTHS.map(m => `<div class="mh">${m[0]}</div>`)];
   for (let y = state.to; y >= state.from; y--) {   // newest year on top
     if (y === meta.switch_year - 1 && state.to >= meta.switch_year) {
-      html.push(`<div class="switch">↑ VIIRS measured · ↓ MODIS scaled to VIIRS-equivalent</div>`);
+      html.push(`<div class="switch">↑ from ${meta.switch_year}: newer VIIRS satellite · ↓ before ${meta.switch_year}: older MODIS satellite, adjusted to match</div>`);
     }
     html.push(`<div class="yr">${y}</div>`);
     for (let m = 0; m < 12; m++) {
@@ -433,7 +454,7 @@ function drawCalendar() {
   document.getElementById("calendar").innerHTML = html.join("");
   const sw = [1,2,3,4,5,6,7,8].map(b => `<i class="b${b}"></i>`).join("");
   document.getElementById("legend").innerHTML =
-    `<i style="background:var(--zero)"></i>&nbsp;none<span class="gap"></span>1&nbsp;${sw}&nbsp;${fmt(max)} hotspots / month`
+    `<i style="background:var(--zero)"></i>&nbsp;no fires<span class="gap"></span>fewer&nbsp;${sw}&nbsp;more fires per month (darkest: ${fmt(max)})`
     + `<span class="gap"></span><i class="nodata"></i>&nbsp;not yet`;
 }
 
@@ -514,6 +535,7 @@ function setupMap() {
       const div = L.DomUtil.create("div", "map-box map-legend");
       div.innerHTML = `<span class="dot"></span>Fires, last 7 days (bigger = more)<br>`
                     + `<span class="rect"></span><span id="legend-area">Your area</span><br>`
+                    + `<span id="legend-path"><span class="line"></span>Smoke path: days to reach Singapore<br></span>`
                     + `<span style="color:var(--ink-2)">Click anywhere to check it</span>`;
       return div;
     },
@@ -537,6 +559,7 @@ function setupMap() {
 
 function drawMap() {
   overlay.clearLayers();
+  document.getElementById("legend-path").style.display = isSingapore() ? "" : "none";
   const box = { color: "#c2410c", weight: 2, dashArray: "6 4", fill: false };
   if (isSingapore()) {
     document.getElementById("legend-area").textContent = "Singapore's smokeshed";
@@ -574,6 +597,9 @@ async function update() {
   drawCalendar();
   drawMap();
   await writeNow(cells);
+  // Tell tour.js the page has content, so a tour never points at a "Loading…" page.
+  window.smokeshedReady = true;
+  document.dispatchEvent(new Event("smokeshed:ready"));
 }
 
 function setPlace(lat, lon, name) {
@@ -654,5 +680,6 @@ start().catch(err => {
     location.protocol === "file:" ? "Open this page through a web server (see README), not by double-clicking the file." : String(err);
 });
 </script>
+<script src="tour.js" defer></script>
 </body>
 </html>
