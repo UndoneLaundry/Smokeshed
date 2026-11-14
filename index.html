@@ -933,7 +933,8 @@ function fillMethod() {
     <li><b>"Usual" and "compared with normal":</b> the median of the same month in ${FIRST_YEAR}–${lastYear - 1}. Fire season = months with at least half the busiest month's usual count. Famous-fire summaries are short background notes; the numbers next to them come from our own data.</li>
     <li><b>Singapore's smokeshed:</b> ${smokeshed.sentence} <a href="docs/feasibility.png">See the chart.</a> Live PM2.5 from NEA via data.gov.sg.</li>
     <li><b>Map:</b> each fire dot is the average position of the fires in a ~28 km square; colour = how many, faded = none in the last 2 days. Satellite image from NASA GIBS (VIIRS NOAA-20 true colour).</li>
-    <li><b>Wind:</b> Singapore's current 10 m wind from Open-Meteo (a weather model). The warning checks whether it blows from a fire region toward Singapore.</li>`;
+    <li><b>Wind:</b> Singapore's current 10 m wind from Open-Meteo (a weather model). The warning checks whether it blows from a fire region toward Singapore.</li>
+    <li><b>Use of AI:</b> this site, its data pipeline and its charts were built with the help of Claude (Anthropic's AI assistant). All numbers are computed from the public data. Details: <a href="https://github.com/UndoneLaundry/Smokeshed#use-of-ai-super-intelligence-tools">README</a>.</li>`;
 }
 
 async function start() {

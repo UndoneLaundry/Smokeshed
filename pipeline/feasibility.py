@@ -174,7 +174,9 @@ def draw_chart(days, fires, pm25, title, subtitle) -> None:
 
     fig.suptitle(title, x=0.01, y=0.985, ha="left", fontsize=13, color=INK, fontweight="bold")
     fig.text(0.01, 0.925, subtitle, fontsize=9, color=INK_2)
-    fig.tight_layout(rect=(0, 0, 0.93, 0.93))
+    # Space Apps rule: AI-assisted images carry a visible note.
+    fig.text(0.99, 0.01, "Chart code written with AI assistance (Claude)", ha="right", fontsize=7, color=INK_2)
+    fig.tight_layout(rect=(0, 0.03, 0.93, 0.93))
     CHART.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(CHART, facecolor=fig.get_facecolor())
 

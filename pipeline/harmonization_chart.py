@@ -87,7 +87,9 @@ def main() -> None:
     fig.text(0.01, 0.885, "Fire hotspots per month while both satellites flew (2013–2014). "
              "Grey = MODIS raw, blue = VIIRS, dashed orange = MODIS after our per-region conversion.",
              fontsize=9, color=INK_2)
-    fig.tight_layout(rect=(0, 0, 1, 0.86))
+    # Space Apps rule: AI-assisted images carry a visible note.
+    fig.text(0.99, 0.01, "Chart code written with AI assistance (Claude)", ha="right", fontsize=7, color=INK_2)
+    fig.tight_layout(rect=(0, 0.03, 1, 0.86))
     fig.savefig(CHART, facecolor=fig.get_facecolor())
     print(f"Chart saved to {CHART.relative_to(REPO_ROOT)}")
 

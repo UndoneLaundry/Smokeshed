@@ -41,6 +41,16 @@ python -m http.server 8000 --bind 127.0.0.1   # then open http://127.0.0.1:8000
 
 The website is one static page (`index.html`, Leaflet, no build step) reading pre-computed JSON, so it can be hosted on GitHub Pages.
 
+## Use of AI (Super Intelligence) tools
+
+In line with the NASA Space Apps rules, here is where AI was used:
+
+- **Code:** most of the pipeline (`pipeline/`), the website (`index.html`, `tour.js`) and the GitHub Action were written with the help of **Claude** (Anthropic's AI assistant, used through Claude Code), working from the project idea, plan and decisions in `docs/WORKFLOW.md`. Commits it helped with carry a `Co-Authored-By: Claude` line (metadata).
+- **Data analysis:** the harmonization ratios, the validation numbers and the Singapore feasibility test were computed by these AI-assisted scripts from public NASA and Singapore data. All numbers come from the data; none were written in by hand.
+- **Charts:** `docs/harmonization.png` and `docs/feasibility.png` were drawn by AI-assisted code (each carries a note saying so).
+- **Text:** README, docs and the demo slides were drafted with AI assistance and then reviewed.
+- **Not used:** no AI image, video or audio generation, and no NASA logos or branding.
+
 ## Data
 
 NASA FIRMS (MODIS Collection 6.1, VIIRS S-NPP 375 m), Singapore PM2.5 from data.gov.sg (NEA), basemap © OpenStreetMap.
