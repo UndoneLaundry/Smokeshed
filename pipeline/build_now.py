@@ -52,7 +52,7 @@ def main() -> None:
     static = load_static_spots()
 
     cells: dict[str, list[int]] = {}   # 1-degree cells: daily counts, for the status numbers
-    spots: dict[tuple, list] = {}      # 0.25-degree cells: [sum lat, sum lon, count], for map dots
+    spots: dict[tuple, list] = {}      # 0.25-degree cells: [sum lat, sum lon, count, last day], for map dots
     for chunk_start, n in chunks(start, end):
         for row in fetch_rows(key, source, chunk_start, n):
             if row["confidence"] == "l" or near_static(row, static):
@@ -60,14 +60,17 @@ def main() -> None:
             if row["acq_date"] not in days:
                 continue
             la, lo = float(row["latitude"]), float(row["longitude"])
+            day = days.index(row["acq_date"])
             counts = cells.setdefault(f"{int(la // 1)},{int(lo // 1)}", [0] * DAYS)
-            counts[days.index(row["acq_date"])] += 1
-            s = spots.setdefault((int(la // POINT_DEG), int(lo // POINT_DEG)), [0.0, 0.0, 0])
-            s[0] += la; s[1] += lo; s[2] += 1
+            counts[day] += 1
+            s = spots.setdefault((int(la // POINT_DEG), int(lo // POINT_DEG)), [0.0, 0.0, 0, 0])
+            s[0] += la; s[1] += lo; s[2] += 1; s[3] = max(s[3], day)
 
     # Each map dot sits at the average position of the real fires in its ~28 km
     # square, so dots follow the actual fire pattern instead of a fixed grid.
-    points = [[round(sla / n, 2), round(slo / n, 2), n] for sla, slo, n in spots.values()]
+    # The 4th number is the last day (0-6) a fire was seen there: the page fades
+    # dots that haven't burned in the last 2 days.
+    points = [[round(sla / n, 2), round(slo / n, 2), n, last] for sla, slo, n, last in spots.values()]
 
     OUT.write_text(json.dumps({
         "through": str(end),
@@ -75,7 +78,7 @@ def main() -> None:
         "source": f"{SOURCES[source]} (near real time)",
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "cells": cells,
-        "points": points,  # [lat, lon, fires in last 7 days]
+        "points": points,  # [lat, lon, fires in last 7 days, last day seen (index into days)]
     }, separators=(",", ":")))
     total = sum(sum(c) for c in cells.values())
     print(f"{total:,} fire hotspots worldwide, {days[0]} to {days[-1]} ({SOURCES[source]}), "
