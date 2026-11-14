@@ -1,0 +1,63 @@
+# Keeps the website current without anyone touching it.
+#
+# Every day: fetch the last 7 days of fires (pipeline/build_now.py), save
+# data/processed/now.json in the repo, and publish the site to GitHub Pages.
+# On every push to main: just publish the site.
+#
+# The FIRMS key lives in the repository secret FIRMS_MAP_KEY. It only reaches
+# the Python script as an environment variable; it is never printed, and the
+# website itself never sees it.
+
+name: Update fires and publish site
+
+on:
+  schedule:
+    - cron: "30 3 * * *"  # 03:30 UTC = 11:30 Singapore, after FIRMS has finished yesterday
+  push:
+    branches: [main]
+  workflow_dispatch:      # a "Run workflow" button on GitHub, for a refresh on demand
+
+permissions:
+  contents: write  # to commit now.json
+  pages: write     # to publish the site
+  id-token: write  # required by GitHub Pages
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  update-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch the last 7 days of fires
+        if: github.event_name != 'push'
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+        run: |
+          pip install python-dotenv
+          python -m pipeline.build_now
+
+      - name: Save the new data in the repo
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/processed/now.json
+          git diff --cached --quiet || (git commit -m "Daily fire update" && git push)
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4

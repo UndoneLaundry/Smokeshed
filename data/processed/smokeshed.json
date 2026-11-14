@@ -1,0 +1,42 @@
+{
+ "city": "Singapore",
+ "lat": 1.352,
+ "lon": 103.82,
+ "regions": [
+  {
+   "name": "Sumatra",
+   "box_swne": [
+    -6,
+    95,
+    6,
+    106
+   ],
+   "lag_days": 1,
+   "r": 0.67
+  },
+  {
+   "name": "Kalimantan",
+   "box_swne": [
+    -5,
+    108,
+    5,
+    119
+   ],
+   "lag_days": 6,
+   "r": 0.47
+  }
+ ],
+ "lead_region": "Sumatra",
+ "lag_days": 1,
+ "r": 0.67,
+ "strength": "moderate",
+ "combined": {
+  "lag_days": 6,
+  "r": 0.54
+ },
+ "period": [
+  "2026-06-01",
+  "2026-11-02"
+ ],
+ "sentence": "Jun to Nov 2026: when fires surged in Sumatra, Singapore's air got worse about 1 day later (moderate link, r = 0.67). Kalimantan: weak link (r = 0.47, ~6 days)."
+}

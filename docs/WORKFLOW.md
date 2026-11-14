@@ -42,6 +42,23 @@ A heatmap of raw hotspot counts, or "this month vs. the historical median", is t
 1. **A new user group the brief overlooks:** people *downwind* of fires (city health agencies, schools, hospitals, outdoor workers, residents).
 2. **A measurable result:** we can test whether hotspot surges in the smokeshed came *before* bad air in Singapore during the 2026 haze season (see [Section 10](#10-validation-plan)).
 
+### 4.1 What already exists, and the gap we bridge (pitch message)
+
+> **The pieces exist, but never together. Smokeshed bridges them into one pin-drop.**
+
+| Existing tool | What it does well | What's missing |
+|---|---|---|
+| NASA FIRMS [S13] | Global MODIS + VIIRS hotspot maps and downloads | Sensors stay separate. No single comparable 2001→now record. |
+| Global Forest Watch fires [S14] | Compares this week's fires to past years | Not harmonized across sensors. Built around fires *inside* your area. |
+| SMOKE Policy Tool (Harvard/Columbia, 2019) [S15] | Models which Indonesian fire regions harm health in Indonesia, Singapore, Malaysia | One region, a heavy atmospheric model, aimed at land-restoration planners. Not a calendar or a warning. |
+| MODIS/VIIRS harmonization research [S16] | Building a harmonized 25-year record | Covers burned area, not hotspots. A science dataset, not a tool. |
+
+**Smokeshed = harmonized record + calendar vs. history + "whose smoke am I breathing?", in one place.**
+- **Worldwide:** drop a pin anywhere and get the harmonized MODIS + VIIRS burning calendar for that area, 2001→now, plus a CSV.
+- **Singapore (worked example):** the smokeshed, learned from data and not from an atmospheric model, plus a tested link from hotspots to PM2.5.
+- **Built to branch out:** the smokeshed method needs only FIRMS hotspots plus a city's air-quality record, so any city with PM2.5 data can be added next (e.g. Kuala Lumpur, Bangkok, Chiang Mai, US western cities).
+- **Cross-check:** [S15] found that restoring peatland on the eastern coast of South Sumatra gives the largest health benefit for Indonesia, Singapore and Malaysia. If our data-only smokeshed also points there, that is independent agreement.
+
 ---
 
 ## 5. How it works (plain language)
@@ -172,13 +189,13 @@ flowchart TD
 
 ## 13. Open decisions
 
-- Grid size (0.25° vs 0.5°)
-- Lag range (0–7 days?) and how "strong link" is defined (threshold / significance test)
-- FIRMS confidence filter for MODIS and VIIRS
-- Overlap-ratio method: per cell vs per region vs per land-cover type
-- Frontend stack (e.g. MapLibre or Leaflet + a charting library)
-- Hosting (static site + pre-computed JSON)
-- Second test city beyond Singapore (to show it generalizes)
+- Grid size (0.25° vs 0.5°). **Decided (2026-11-14): 1° cells for the worldwide calendar (12 MB of JSON for the whole world, fine for a static site); finer grids are future work.**
+- Lag range (0–7 days?) and how "strong link" is defined (threshold / significance test). **Decided (2026-11-14): lags 0–7 days, Pearson r; ≥0.7 strong, 0.5–0.7 moderate, 0.3–0.5 weak. No significance test yet, which is the simplest choice for the weekend (see Limitations).**
+- FIRMS confidence filter for MODIS and VIIRS. **Decided (2026-11-14): MODIS Terra confidence ≥ 30; VIIRS "nominal" + "high" (drop "low"); vegetation fires only (type 0). These are standard thresholds that drop doubtful detections and gas flares.**
+- Overlap-ratio method: per cell vs per region vs per land-cover type. **Decided (2026-11-14): per region (Sumatra, Kalimantan): one ratio each, the simplest method that fits the hackathon weekend.**
+- Frontend stack (e.g. MapLibre or Leaflet + a charting library). **Decided (2026-11-14): Leaflet, plain HTML/CSS/JS, no build step, which means fewest moving parts.**
+- Hosting (static site + pre-computed JSON). **Decided (2026-11-14): GitHub Pages serving static files + JSON. Free, no server needed.**
+- Second test city beyond Singapore (to show it generalizes). **Decided (2026-11-14): the calendar is worldwide, but the smokeshed is shown for Singapore only. The method is built so other cities can be added next (listed as future work). There isn't time to validate a second city well this weekend.**
 
 ---
 
@@ -196,4 +213,8 @@ flowchart TD
 - **[S10]** NASA FIRMS: *Archive Download* (temporal coverage). https://firms2.modaps.eosdis.nasa.gov/download/
 - **[S11]** Wilmot et al., *Environmental Research Letters*: *Wildfire activity is driving summertime air quality degradation across the western US: a model-based attribution to smoke source regions*. https://iopscience.iop.org/article/10.1088/1748-9326/ac9a5d
 - **[S12]** data.gov.sg (NEA): *Historical 1-hr PM2.5*. https://data.gov.sg/dataset/historical-1-hr-pm2-5
+- **[S13]** Wikipedia: *Fire Information for Resource Management System*. https://en.wikipedia.org/wiki/Fire_Information_for_Resource_Management_System
+- **[S14]** Global Forest Watch blog: *Tracking Wildfire Trends as Fire Seasons Heat Up*. https://www.globalforestwatch.org/blog/data-and-tools/wildfire-trends-gfw-fire-data/
+- **[S15]** The Conversation (2019): *We built an app to detect areas most vulnerable to life-threatening haze* (SMOKE Policy Tool, Harvard/Columbia). https://theconversation.com/we-built-an-app-to-detect-areas-most-vulnerable-to-life-threatening-haze-122388
+- **[S16]** Boschetti et al., MODIS Science Team meeting 2022: MODIS/VIIRS burned-area harmonization. https://modis.gsfc.nasa.gov/sci_team/meetings/202204/presentations/session1/boschetti.pdf
 - NASA Space Apps Challenge 2026: challenge statement (harmonized burning activity calendar).

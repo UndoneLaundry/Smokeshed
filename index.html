@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smokeshed</title>
+<meta name="description" content="Is it burning near you right now, and is that normal? A harmonized NASA MODIS + VIIRS fire record for anywhere on Earth, 2001 to now, plus the smokeshed behind Singapore's haze.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  /* ---------- colour tokens (light, then dark) ---------- */
+  :root {
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --line: #e6e5e0;
+    --accent: #c2410c; --zero: #efeee9; --tip-bg: #0b0b0b; --tip-ink: #f9f9f7;
+    /* status colours: reserved for status, always shown with an icon + a word */
+    --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+    /* ColorBrewer "Oranges": one hue, light -> dark, colour-blind safe */
+    --b1: #fee6ce; --b2: #fdd0a2; --b3: #fdae6b; --b4: #fd8d3c;
+    --b5: #f16913; --b6: #d94801; --b7: #a63603; --b8: #7f2704;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --line: #383835;
+      --accent: #fb923c; --zero: #262624; --tip-bg: #f0efec; --tip-ink: #0d0d0d;
+      --b1: #4a1d06; --b2: #6b2a07; --b3: #8f3a08; --b4: #b84c0b;
+      --b5: #e0640f; --b6: #f5842e; --b7: #fbab6b; --b8: #fdd3a8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --line: #383835;
+    --accent: #fb923c; --zero: #262624; --tip-bg: #f0efec; --tip-ink: #0d0d0d;
+    --b1: #4a1d06; --b2: #6b2a07; --b3: #8f3a08; --b4: #b84c0b;
+    --b5: #e0640f; --b6: #f5842e; --b7: #fbab6b; --b8: #fdd3a8;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 12px 16px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+  h1 span { color: var(--accent); }
+  .tag { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); min-height: calc(100vh - 62px); }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } #where { border-right: 0; } #map { min-height: 380px; } }
+
+  /* ---------- left: where? ---------- */
+  #where { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--line); }
+  #search { display: flex; gap: 6px; }
+  #search input { flex: 1; min-width: 0; padding: 8px 10px; font: inherit; color: var(--ink);
+                  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--surface); color: var(--ink); padding: 7px 12px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2); }
+  .chips button { padding: 3px 10px; font-size: 13px; border-radius: 999px; }
+  #map { flex: 1; min-height: 420px; border-radius: 8px; border: 1px solid var(--line); }
+
+  /* map controls (basemap switch, legend) */
+  .map-box { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+             box-shadow: 0 1px 4px rgba(0,0,0,.15); font-size: 12px; }
+  .basemap { display: flex; overflow: hidden; }
+  .basemap button { border: 0; border-radius: 0; padding: 6px 10px; font-size: 12px; background: transparent; }
+  .basemap button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .map-legend { padding: 6px 9px; line-height: 1.6; }
+  .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f16913;
+                     border: 1px solid #fff; vertical-align: -1px; margin-right: 5px; }
+  .map-legend .rect { display: inline-block; width: 12px; height: 9px; border: 2px dashed #c2410c; vertical-align: -1px; margin-right: 4px; }
+  .box-label { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-size: 12px; font-weight: 600; box-shadow: none; }
+  .path-label { background: #c2410c; color: #fff; border: 0; font-size: 12px; font-weight: 600; box-shadow: none; }
+  .path-label::before, .box-label::before { display: none; }
+  .pin-label { background: var(--ink); color: var(--surface); border: 0; font-weight: 600; box-shadow: none; }
+  .pin-label::before { border-top-color: var(--ink) !important; }
+  .leaflet-container { background: var(--zero); font: inherit; }
+
+  /* ---------- right: the answer ---------- */
+  #answer { padding: 14px 16px 24px; overflow: auto; }
+  .eyebrow { margin: 0; font-size: 13px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+  .status { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 13px; color: var(--ink-2); }
+  .status .icon { width: 22px; height: 22px; border-radius: 6px; display: inline-grid; place-items: center;
+                  color: #fff; font-weight: 800; font-size: 13px; }
+  .status b { font-size: 17px; color: var(--ink); }
+  .sentence { margin: 2px 0 8px; font-size: 21px; line-height: 1.3; font-weight: 600; }
+  .sub { margin: 0 0 8px; color: var(--ink-2); }
+  .sub strong { color: var(--ink); }
+  .callout { margin: 10px 0; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+  .callout p { margin: 0 0 6px; } .callout p:last-child { margin: 0; }
+
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 54px; max-width: 320px; margin: 6px 0 2px; }
+  .week div { background: var(--b5); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 320px; font-size: 11px; color: var(--ink-2); text-align: center; }
+
+  h2 { font-size: 15px; margin: 22px 0 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 10px 0 8px; font-size: 13px; color: var(--ink-2); }
+  .controls select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 4px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg label { padding: 3px 8px; cursor: pointer; }
+  .seg input { position: absolute; opacity: 0; }
+  .seg input:checked + span { color: var(--accent); font-weight: 600; }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); }
+  #csv { margin-left: auto; }
+
+  /* ---------- calendar heatmap ---------- */
+  #calendar { display: grid; grid-template-columns: 38px repeat(12, minmax(14px, 1fr)); gap: 2px; font-size: 11px; color: var(--ink-2); }
+  #calendar .mh { text-align: center; }
+  #calendar .yr { text-align: right; padding-right: 4px; line-height: 16px; }
+  #calendar .c { height: 16px; border-radius: 3px; background: var(--zero); }
+  .nodata { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 5px) !important; }
+  #calendar .c.latest { outline: 2px solid var(--ink); outline-offset: -1px; }
+  #calendar .switch { grid-column: 1 / -1; font-size: 11px; color: var(--ink-2); border-top: 1px dashed var(--ink-2); padding: 1px 0 2px 42px; margin: 2px 0; }
+  .b1 { background: var(--b1) !important; } .b2 { background: var(--b2) !important; }
+  .b3 { background: var(--b3) !important; } .b4 { background: var(--b4) !important; }
+  .b5 { background: var(--b5) !important; } .b6 { background: var(--b6) !important; }
+  .b7 { background: var(--b7) !important; } .b8 { background: var(--b8) !important; }
+  #legend { display: flex; align-items: center; gap: 2px; margin: 10px 0 0 40px; font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
+  #legend i { display: inline-block; width: 18px; height: 12px; border-radius: 2px; }
+  #legend .gap { width: 10px; }
+
+  details { margin-top: 18px; font-size: 13px; color: var(--ink-2); }
+  details summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+  details li { margin: 4px 0; }
+  a { color: var(--accent); }
+
+  #tooltip { position: fixed; pointer-events: none; z-index: 1000; background: var(--tip-bg); color: var(--tip-ink);
+             font-size: 12px; padding: 6px 8px; border-radius: 6px; max-width: 240px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Smoke<span>shed</span></h1>
+  <p class="tag">Is it burning near you right now, and is that normal? NASA fire satellites, harmonized from 2001 to today.</p>
+</header>
+
+<main>
+  <section id="where" aria-label="Choose a place">
+    <form id="search">
+      <input id="q" type="search" placeholder="Search a city, or type lat, lon" aria-label="City or latitude, longitude">
+      <button class="primary" type="submit">Show</button>
+    </form>
+    <div class="chips">Try:
+      <button type="button" data-lat="1.352" data-lon="103.82" data-name="Singapore">Singapore</button>
+      <button type="button" data-lat="18.79" data-lon="98.98" data-name="Chiang Mai">Chiang Mai</button>
+      <button type="button" data-lat="34.05" data-lon="-118.24" data-name="Los Angeles">Los Angeles</button>
+      <button type="button" data-lat="-3.12" data-lon="-60.02" data-name="Manaus">Manaus</button>
+      <button type="button" data-lat="-33.87" data-lon="151.21" data-name="Sydney">Sydney</button>
+    </div>
+    <div id="map" role="application" aria-label="Map: click anywhere to check it"></div>
+  </section>
+
+  <section id="answer" aria-live="polite">
+    <p class="eyebrow" id="place">Loading…</p>
+
+    <!-- 1. Right now -->
+    <div class="status" id="status"></div>
+    <p class="sentence" id="now-sentence"></p>
+    <div class="week" id="week" aria-hidden="true"></div>
+    <div class="week-days" id="week-days" aria-hidden="true"></div>
+    <div class="callout" id="singapore" hidden>
+      <p id="warn"></p>
+      <p id="air"></p>
+    </div>
+
+    <!-- 2. History -->
+    <h2 id="cal-title">Burning calendar, 2001 to now</h2>
+    <p class="sub" id="history"></p>
+    <div class="controls">
+      <span id="size-wrap">Area:
+        <span class="seg" role="radiogroup" aria-label="Area size">
+          <label><input type="radio" name="size" value="1"><span>~110 km</span></label>
+          <label><input type="radio" name="size" value="3" checked><span>~330 km</span></label>
+          <label><input type="radio" name="size" value="5"><span>~550 km</span></label>
+        </span>
+      </span>
+      <span>Years: <select id="from" aria-label="From year"></select> to <select id="to" aria-label="To year"></select></span>
+      <button id="csv" type="button">Download CSV</button>
+    </div>
+    <div id="calendar"></div>
+    <div id="legend"></div>
+
+    <details>
+      <summary>How the numbers are made</summary>
+      <ul id="method"></ul>
+    </details>
+  </section>
+</main>
+<div id="tooltip" role="tooltip" hidden></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+/* Smokeshed front end: plain JavaScript, no build step.
+   Pre-computed data (see pipeline/):
+     data/processed/now.json                 fires per 1-degree cell, last 7 days (updated daily by a GitHub Action)
+     data/processed/calendar/meta.json       months, harmonization ratios
+     data/processed/calendar/tile_*.json     monthly fires per 1-degree cell, 2001 to now
+     data/processed/smokeshed.json           Singapore's smokeshed + feasibility result
+   Live, straight from the browser (free, no key):
+     NASA GIBS satellite image, data.gov.sg PM2.5 for Singapore. */
+
+const DATA = "data/processed/";
+const FIRST_YEAR = 2001;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const dayLabel = iso => { const d = new Date(iso + "T00:00:00Z"); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
+const daysInMonth = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();   // m is 0-11
+
+const state = { lat: 1.352, lon: 103.82, name: "Singapore", size: 3, from: FIRST_YEAR, to: null };
+let meta, smokeshed, now, map, overlay, series = [], lastFull = 0, lastYear = 0;
+
+// ---------- data loading ----------
+
+const tileCache = new Map();
+function loadTile(id) {
+  if (!tileCache.has(id)) {
+    // A missing tile means "no fires ever detected there": zero is data, not an error.
+    tileCache.set(id, fetch(`${DATA}calendar/tile_${id}.json`)
+      .then(r => (r.ok ? r.json() : { cells: {} }))
+      .catch(() => ({ cells: {} })));
+  }
+  return tileCache.get(id);
+}
+const tileId = (lat, lon) => `${Math.floor(lat / 10) * 10}_${Math.floor(lon / 10) * 10}`;
+const wrapLon = lon => ((((lon + 180) % 360) + 360) % 360) - 180;
+
+// Singapore gets its smokeshed (where its smoke comes from), not a box around the pin.
+const isSingapore = () => Math.floor(state.lat) === 1 && Math.floor(state.lon) === 103;
+
+function boxCells([s, w, n, e]) {
+  const cells = [];
+  for (let la = s; la < n; la++) for (let lo = w; lo < e; lo++) cells.push([la, lo]);
+  return cells;
+}
+
+function areaCells() {
+  if (isSingapore()) return smokeshed.regions.flatMap(r => boxCells(r.box_swne));
+  const half = (state.size - 1) / 2, la0 = Math.floor(state.lat), lo0 = Math.floor(state.lon);
+  const cells = [];
+  for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+    const la = la0 + dy;
+    if (la >= -90 && la < 90) cells.push([la, wrapLon(lo0 + dx)]);
+  }
+  return cells;
+}
+
+async function monthlySeries(cells) {
+  const total = new Array(meta.n_months).fill(0);
+  const tiles = await Promise.all(cells.map(([la, lo]) => loadTile(tileId(la, lo))));
+  cells.forEach(([la, lo], i) => {
+    const row = tiles[i].cells[`${la},${lo}`];
+    if (row) row.forEach((n, m) => { total[m] += n; });
+  });
+  return total;
+}
+
+function weekSeries(cells) {  // fires per day, last 7 days
+  const total = new Array(now.days.length).fill(0);
+  for (const [la, lo] of cells) {
+    const row = now.cells[`${la},${lo}`];
+    if (row) row.forEach((n, d) => { total[d] += n; });
+  }
+  return total;
+}
+
+// ---------- "normal" = the median of the same month, 2001 to last year ----------
+
+const median = xs => { const s = [...xs].sort((a, b) => a - b); const h = s.length >> 1;
+  return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
+const idxOf = (y, m) => (y - FIRST_YEAR) * 12 + m;
+const usualMonth = (ser, m) => median(Array.from({ length: lastYear - FIRST_YEAR }, (_, k) => ser[idxOf(FIRST_YEAR + k, m)]));
+
+// Normal number of fires over `days` days at this time of year.
+function normalFor(ser, days) {
+  const end = new Date(now.through + "T00:00:00Z");
+  const m = end.getUTCMonth();
+  return usualMonth(ser, m) * days / daysInMonth(end.getUTCFullYear(), m);
+}
+
+// ---------- 1. right now ----------
+
+const STATUS = {
+  quiet:   { label: "Quiet",        color: "var(--good)",     icon: "✓" },
+  normal:  { label: "Normal",       color: "var(--good)",     icon: "✓" },
+  above:   { label: "Above normal", color: "var(--warning)",  icon: "▲" },
+  unusual: { label: "Unusual",      color: "var(--warning)",  icon: "▲" },
+  surge:   { label: "Surge",        color: "var(--critical)", icon: "!" },
+};
+
+function judge(count, normal) {
+  if (normal < 1) return count < 5 ? "quiet" : "unusual";
+  const x = count / normal;
+  if (x >= 3) return "surge";
+  if (x >= 1.5) return "above";
+  if (x <= 0.5) return "quiet";
+  return "normal";
+}
+
+function nowSentence(count, normal, where) {
+  const month = MONTHS_LONG[new Date(now.through + "T00:00:00Z").getUTCMonth()];
+  const head = `${fmt(count)} fire hotspot${count === 1 ? "" : "s"} ${where} in the last 7 days`;
+  if (normal < 1) return count === 0 ? `No fires ${where} in the last 7 days, which is normal for ${month}.`
+                                     : `${head}. Usually there are almost none in ${month}.`;
+  const x = count / normal;
+  if (x >= 1.5) return `${head}: ${x.toFixed(1)}× normal for ${month}.`;
+  if (x <= 0.67) return `${head}, below normal for ${month} (usually about ${fmt(normal)}).`;
+  return `${head}, about normal for ${month} (usually about ${fmt(normal)}).`;
+}
+
+function drawWeek(week) {
+  const max = Math.max(1, ...week);
+  document.getElementById("week").innerHTML = week.map((n, d) =>
+    `<div style="height:${Math.max(4, (n / max) * 100)}%" data-tip="${dayLabel(now.days[d])}: ${fmt(n)} fire hotspots"></div>`).join("");
+  document.getElementById("week-days").innerHTML = now.days.map(d => `<span>${dayLabel(d).split(" ")[0]}</span>`).join("");
+}
+
+async function writeNow(cells) {
+  const week = weekSeries(cells);
+  const count = week.reduce((a, b) => a + b, 0);
+  const normal = normalFor(series, 7);
+  const st = STATUS[judge(count, normal)];
+  document.getElementById("status").innerHTML =
+    `<span class="icon" style="background:${st.color}" aria-hidden="true">${st.icon}</span>`
+    + `<b>${st.label}</b><span>· fires, ${dayLabel(now.days[0])} to ${dayLabel(now.through)}</span>`;
+  document.getElementById("now-sentence").textContent =
+    nowSentence(count, normal, isSingapore() ? "in Singapore's smokeshed" : "in this area");
+  drawWeek(week);
+
+  const box = document.getElementById("singapore");
+  box.hidden = !isSingapore();
+  if (isSingapore()) { await writeSingaporeWarning(); writeSingaporeAir(); }
+}
+
+// Singapore: turn the measured "Sumatra fires -> worse air ~1 day later" link into a warning.
+async function writeSingaporeWarning() {
+  const lead = smokeshed.regions.find(r => r.name === smokeshed.lead_region);
+  const cells = boxCells(lead.box_swne);
+  const recent = weekSeries(cells).slice(-2).reduce((a, b) => a + b, 0);   // last 2 days
+  const normal = normalFor(await monthlySeries(cells), 2);
+  const x = normal >= 1 ? recent / normal : 0;
+  const month = new Date(now.through + "T00:00:00Z").getUTCMonth();
+  const monsoon = month >= 5 && month <= 9;  // Jun-Oct: winds carry Sumatra's smoke to Singapore
+  let text;
+  if (x >= 1.5) {
+    text = `<strong>Haze warning:</strong> fires in ${lead.name} are ${x.toFixed(1)}× normal over the last 2 days. `
+      + (monsoon ? `In 2026, Singapore's air got worse about ${lead.lag_days} day after surges like this.`
+                 : `In the Jun–Oct monsoon this meant worse air in Singapore ~${lead.lag_days} day later; at this time of year winds often carry the smoke elsewhere, so watch the readings below.`);
+  } else {
+    text = `<strong>No haze warning:</strong> fires in ${lead.name}, where Singapore's haze mostly comes from, `
+      + `are ${x >= 0.67 ? "at normal levels" : "below normal"} over the last 2 days.`;
+    // Explain a surge elsewhere in the smokeshed, so "Surge" above and "No warning" here don't clash.
+    for (const other of smokeshed.regions.filter(r => r !== lead)) {
+      const oc = boxCells(other.box_swne);
+      const week = weekSeries(oc).reduce((a, b) => a + b, 0);
+      const on = normalFor(await monthlySeries(oc), 7);
+      if (on >= 1 && week / on >= 1.5) {
+        text += ` This week's rise is in ${other.name} (${(week / on).toFixed(1)}× normal), whose smoke `
+          + `reaches Singapore less directly (${other.r < 0.5 ? "weak" : "moderate"} link, ~${other.lag_days} days).`;
+      }
+    }
+  }
+  document.getElementById("warn").innerHTML = text;
+}
+
+// Singapore's live PM2.5, straight from data.gov.sg (free, allows browser requests).
+async function writeSingaporeAir() {
+  const el = document.getElementById("air");
+  el.textContent = "Checking Singapore's air right now…";
+  try {
+    const r = await fetch("https://api-open.data.gov.sg/v2/real-time/api/pm25");
+    const items = (await r.json()).data.items;
+    const latest = items.reduce((a, b) => (a.timestamp > b.timestamp ? a : b));
+    const vals = Object.values(latest.readings.pm25_one_hourly);
+    const pm = vals.reduce((a, b) => a + b, 0) / vals.length;
+    // NEA's 1-hour PM2.5 bands
+    const band = pm <= 55 ? "Band I (Normal)" : pm <= 150 ? "Band II (Elevated)" : pm <= 250 ? "Band III (High)" : "Band IV (Very high)";
+    const time = latest.timestamp.slice(11, 16);
+    el.innerHTML = `<strong>Singapore's air now:</strong> PM2.5 ${Math.round(pm)} µg/m³ at ${time}, ${band}. Source: NEA via data.gov.sg.`;
+  } catch {
+    el.textContent = "Singapore's live air reading is unavailable right now (data.gov.sg).";
+  }
+}
+
+// ---------- 2. history ----------
+
+function historySentence(where) {
+  const y = FIRST_YEAR + Math.floor(lastFull / 12), m = lastFull % 12;
+  const v = series[lastFull], med = usualMonth(series, m), when = `${MONTHS_LONG[m]} ${y}`;
+  let s;
+  if (med === 0 && v === 0) s = `No fires ${where} in ${when}, which is normal.`;
+  else if (med === 0) s = `${when}: ${fmt(v)} fire hotspots ${where}; most ${MONTHS_LONG[m]}s have none.`;
+  else {
+    const x = v / med;
+    s = x >= 1.5 ? `${when}: ${fmt(v)} fire hotspots ${where}, ${x.toFixed(1)}× the usual ${MONTHS_LONG[m]} (${fmt(med)}).`
+      : x <= 0.67 ? `${when}: ${fmt(v)} fire hotspots ${where}, below the usual ${MONTHS_LONG[m]} (${fmt(med)}).`
+      : `${when}: ${fmt(v)} fire hotspots ${where}, about the usual for ${MONTHS_LONG[m]} (${fmt(med)}).`;
+  }
+  let worst = 0;
+  for (let i = 1; i < idxOf(lastYear, 0); i++) if (series[i] > series[worst]) worst = i;
+  if (series[worst] === 0) return "No vegetation fires detected here by NASA satellites since 2001.";
+  const meds = MONTHS.map((_, k) => usualMonth(series, k));
+  const peak = meds.indexOf(Math.max(...meds));
+  const season = meds[peak] > 0 ? ` Fire season usually peaks in ${MONTHS_LONG[peak]}.` : "";
+  return `${s}${season} Worst month on record: ${MONTHS_LONG[worst % 12]} ${FIRST_YEAR + Math.floor(worst / 12)} (${fmt(series[worst])}).`;
+}
+
+function binOf(v, max) {
+  // 8 square-root bins: bad months stand out, but quiet months stay visible.
+  if (v <= 0) return 0;
+  return Math.max(1, Math.ceil(Math.sqrt(v / max) * 8));
+}
+
+function drawCalendar() {
+  const shown = [];
+  for (let y = state.from; y <= state.to; y++) for (let m = 0; m < 12; m++) {
+    const i = idxOf(y, m); if (i < meta.n_months) shown.push(series[i]);
+  }
+  const max = Math.max(1, ...shown);
+  const html = ['<div></div>', ...MONTHS.map(m => `<div class="mh">${m[0]}</div>`)];
+  for (let y = state.to; y >= state.from; y--) {   // newest year on top
+    if (y === meta.switch_year - 1 && state.to >= meta.switch_year) {
+      html.push(`<div class="switch">↑ VIIRS measured · ↓ MODIS scaled to VIIRS-equivalent</div>`);
+    }
+    html.push(`<div class="yr">${y}</div>`);
+    for (let m = 0; m < 12; m++) {
+      const i = idxOf(y, m);
+      if (i >= meta.n_months) { html.push(`<div class="c nodata" data-tip="${MONTHS_LONG[m]} ${y}: not yet"></div>`); continue; }
+      const v = series[i];
+      const src = y >= meta.switch_year ? "VIIRS S-NPP" : "MODIS Terra, scaled";
+      const partial = i === meta.n_months - 1 && i !== lastFull ? " (part of month)" : "";
+      const tip = `${MONTHS_LONG[m]} ${y}${partial}: ${fmt(v)} hotspots · ${src}`;
+      html.push(`<div class="c b${binOf(v, max)}${i === lastFull ? " latest" : ""}" data-tip="${tip}" aria-label="${tip}" role="img"></div>`);
+    }
+  }
+  document.getElementById("calendar").innerHTML = html.join("");
+  const sw = [1,2,3,4,5,6,7,8].map(b => `<i class="b${b}"></i>`).join("");
+  document.getElementById("legend").innerHTML =
+    `<i style="background:var(--zero)"></i>&nbsp;none<span class="gap"></span>1&nbsp;${sw}&nbsp;${fmt(max)} hotspots / month`
+    + `<span class="gap"></span><i class="nodata"></i>&nbsp;not yet`;
+}
+
+// Hover tooltips for the calendar and the 7-day bars.
+const tip = document.getElementById("tooltip");
+for (const id of ["calendar", "week"]) {
+  const el = document.getElementById(id);
+  el.addEventListener("mousemove", e => {
+    const t = e.target.dataset && e.target.dataset.tip;
+    if (!t) { tip.hidden = true; return; }
+    tip.textContent = t; tip.hidden = false;
+    tip.style.left = `${Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${e.clientY + 14}px`;
+  });
+  el.addEventListener("mouseleave", () => { tip.hidden = true; });
+}
+
+// ---------- CSV download ----------
+
+document.getElementById("csv").addEventListener("click", () => {
+  const area = isSingapore() ? "Singapore smokeshed (Sumatra + Kalimantan boxes)"
+                             : `${state.name} (${state.lat.toFixed(3)}, ${state.lon.toFixed(3)}), ${state.size}x${state.size} degree box`;
+  const rows = [["area", "month", "hotspots_viirs_equivalent", "source"]];
+  for (let y = state.from; y <= state.to; y++) for (let m = 0; m < 12; m++) {
+    const i = idxOf(y, m);
+    if (i >= meta.n_months) break;
+    rows.push([area, `${y}-${String(m + 1).padStart(2, "0")}`, series[i],
+               y >= meta.switch_year ? "VIIRS S-NPP" : "MODIS Terra x regional ratio"]);
+  }
+  const text = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+  a.download = `smokeshed_${state.name.replace(/\W+/g, "_")}_${state.from}-${state.to}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+// ---------- map ----------
+
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
+const ESRI_ATTR = "Basemap &copy; Esri · Fires: NASA FIRMS";
+
+function setupMap() {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  map = L.map("map", { worldCopyJump: true, preferCanvas: true, zoomControl: false }).setView([state.lat, state.lon], 5);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+
+  // Two backgrounds: a calm grey map (fires stand out) and yesterday's real satellite image (smoke is visible).
+  const grey = L.layerGroup([
+    L.tileLayer(`${ESRI}/Canvas/World_${dark ? "Dark" : "Light"}_Gray_Base/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 16, attribution: ESRI_ATTR }),
+    L.tileLayer(`${ESRI}/Canvas/World_${dark ? "Dark" : "Light"}_Gray_Reference/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 16 }),
+  ]);
+  const satellite = L.layerGroup([
+    L.tileLayer(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${now.through}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+                { maxNativeZoom: 9, maxZoom: 16, attribution: `Satellite: NASA GIBS / VIIRS NOAA-20, ${dayLabel(now.through)} · ${ESRI_ATTR}` }),
+    L.tileLayer(`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 16 }),
+  ]);
+  grey.addTo(map);
+
+  const Switch = L.Control.extend({
+    onAdd() {
+      const div = L.DomUtil.create("div", "map-box basemap");
+      div.innerHTML = `<button type="button" aria-pressed="true" data-k="grey">Map</button>`
+                    + `<button type="button" aria-pressed="false" data-k="sat">Satellite · ${dayLabel(now.through)}</button>`;
+      L.DomEvent.disableClickPropagation(div);
+      div.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        const sat = b.dataset.k === "sat";
+        map.removeLayer(sat ? grey : satellite); map.addLayer(sat ? satellite : grey);
+        div.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      }));
+      return div;
+    },
+  });
+  new Switch({ position: "topright" }).addTo(map);
+
+  const Legend = L.Control.extend({
+    onAdd() {
+      const div = L.DomUtil.create("div", "map-box map-legend");
+      div.innerHTML = `<span class="dot"></span>Fires, last 7 days (bigger = more)<br>`
+                    + `<span class="rect"></span><span id="legend-area">Your area</span><br>`
+                    + `<span style="color:var(--ink-2)">Click anywhere to check it</span>`;
+      return div;
+    },
+  });
+  new Legend({ position: "bottomleft" }).addTo(map);
+
+  // Fires right now: one dot per 1-degree cell, area grows with the 7-day count.
+  const fires = L.layerGroup().addTo(map);
+  for (const [cell, days] of Object.entries(now.cells)) {
+    const n = days.reduce((a, b) => a + b, 0);
+    const [la, lo] = cell.split(",").map(Number);
+    L.circleMarker([la + 0.5, lo + 0.5], {
+      radius: Math.min(14, 2 + Math.sqrt(n) / 3), color: "#ffffff", weight: 0.6,
+      fillColor: "#f16913", fillOpacity: 0.8,
+    }).bindTooltip(`${fmt(n)} fire hotspots in the last 7 days`).addTo(fires);
+  }
+
+  overlay = L.featureGroup().addTo(map);
+  map.on("click", e => setPlace(e.latlng.lat, e.latlng.lng));
+}
+
+function drawMap() {
+  overlay.clearLayers();
+  const box = { color: "#c2410c", weight: 2, dashArray: "6 4", fill: false };
+  if (isSingapore()) {
+    document.getElementById("legend-area").textContent = "Singapore's smokeshed";
+    for (const r of smokeshed.regions) {
+      const [s, w, n, e] = r.box_swne;
+      L.rectangle([[s, w], [n, e]], box).addTo(overlay)
+        .bindTooltip(r.name, { permanent: true, direction: "top", className: "box-label", offset: [0, -4] })
+        .openTooltip([n, (w + e) / 2]);
+      // The smoke's path to Singapore, labelled with how long it took to arrive.
+      L.polyline([[(s + n) / 2, (w + e) / 2], [state.lat, state.lon]], { color: "#c2410c", weight: 3, opacity: 0.8 })
+        .addTo(overlay)
+        .bindTooltip(`~${r.lag_days} day${r.lag_days === 1 ? "" : "s"}`, { permanent: true, direction: "center", className: "path-label" });
+    }
+  } else {
+    document.getElementById("legend-area").textContent = "Your area";
+    const half = (state.size - 1) / 2, la = Math.floor(state.lat), lo = Math.floor(state.lon);
+    L.rectangle([[la - half, lo - half], [la + half + 1, lo + half + 1]], box).addTo(overlay);
+  }
+  L.circleMarker([state.lat, state.lon], { radius: 7, color: "#fff", weight: 2.5, fillColor: "#0b0b0b", fillOpacity: 1 })
+    .addTo(overlay).bindTooltip(state.name, { permanent: true, direction: "top", offset: [0, -8], className: "pin-label" });
+  map.fitBounds(overlay.getBounds(), { padding: [40, 40], maxZoom: 6 });
+}
+
+// ---------- update everything when the place or options change ----------
+
+async function update() {
+  history.replaceState(null, "", `#${state.lat.toFixed(3)},${state.lon.toFixed(3)},${state.size}`);
+  const cells = areaCells();
+  series = await monthlySeries(cells);
+  const sg = isSingapore();
+  document.getElementById("place").textContent = sg ? "Singapore · smokeshed: Sumatra + Kalimantan"
+    : `${state.name} · ~${{ 1: 110, 3: 330, 5: 550 }[state.size]} km area`;
+  document.getElementById("size-wrap").style.visibility = sg ? "hidden" : "visible";
+  document.getElementById("history").textContent = historySentence(sg ? "in the smokeshed" : "in this area");
+  drawCalendar();
+  drawMap();
+  await writeNow(cells);
+}
+
+function setPlace(lat, lon, name) {
+  state.lat = lat; state.lon = wrapLon(lon);
+  state.name = name || `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}, ${Math.abs(state.lon).toFixed(2)}°${state.lon >= 0 ? "E" : "W"}`;
+  if (isSingapore() && !name) state.name = "Singapore";
+  update();
+}
+
+document.querySelectorAll(".chips button").forEach(b =>
+  b.addEventListener("click", () => setPlace(+b.dataset.lat, +b.dataset.lon, b.dataset.name)));
+
+document.querySelectorAll('input[name="size"]').forEach(r =>
+  r.addEventListener("change", () => { state.size = +r.value; update(); }));
+
+document.getElementById("search").addEventListener("submit", async e => {
+  e.preventDefault();
+  const q = document.getElementById("q").value.trim();
+  if (!q) return;
+  const ll = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (ll) return setPlace(+ll[1], +ll[2]);
+  try {  // free OpenStreetMap geocoder, no key needed
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`);
+    const hit = (await r.json())[0];
+    if (hit) setPlace(+hit.lat, +hit.lon, hit.display_name.split(",")[0]);
+    else document.getElementById("q").value = `${q}: not found, try another spelling`;
+  } catch { document.getElementById("q").value = "Search is offline: click the map instead"; }
+});
+
+function fillYearSelects() {
+  const opts = Array.from({ length: lastYear - FIRST_YEAR + 1 }, (_, k) => `<option>${FIRST_YEAR + k}</option>`).join("");
+  const from = document.getElementById("from"), to = document.getElementById("to");
+  from.innerHTML = opts; to.innerHTML = opts;
+  from.value = state.from; to.value = state.to;
+  const onChange = () => {
+    state.from = Math.min(+from.value, +to.value); state.to = Math.max(+from.value, +to.value);
+    drawCalendar();
+  };
+  from.addEventListener("change", onChange); to.addEventListener("change", onChange);
+}
+
+function fillMethod() {
+  document.getElementById("method").innerHTML = `
+    <li><b>Right now:</b> fire hotspots from ${now.source}, ${now.days[0]} to ${now.through}, refreshed daily (last update ${now.updated}). "Normal" is the median for this month in ${FIRST_YEAR}–${lastYear - 1}, scaled to 7 days. Surge = 3× normal or more; above normal = 1.5×.</li>
+    <li><b>History:</b> NASA FIRMS hotspots: MODIS Terra (1 km, 2001–2012) and VIIRS S-NPP (375 m, 2013 on), vegetation fires only, low-confidence detections and known gas flares removed. Calendar data to ${meta.data_through}.</li>
+    <li><b>Harmonizing:</b> VIIRS sees many more small fires than MODIS (worldwide ${meta.global_ratio}× as many). While both flew (${meta.overlap_years.join("–")}) we measured that ratio separately in each 10° region and converted older MODIS counts into VIIRS-equivalent counts, so every year is comparable. ${meta.ratio_check}</li>
+    <li><b>Singapore's smokeshed:</b> ${smokeshed.sentence} <a href="docs/feasibility.png">See the chart.</a> Live PM2.5 from NEA via data.gov.sg.</li>
+    <li><b>Map:</b> satellite image from NASA GIBS (VIIRS NOAA-20 true colour); a grid square is 1° (about 110 km).</li>`;
+}
+
+async function start() {
+  [meta, smokeshed, now] = await Promise.all(
+    ["calendar/meta.json", "smokeshed.json", "now.json"].map(f => fetch(DATA + f).then(r => r.json())));
+  // The latest *complete* month is the one the history sentence compares.
+  const [y, mo, d] = meta.data_through.split("-").map(Number);
+  lastFull = idxOf(y, mo - 1) - (d === daysInMonth(y, mo - 1) ? 0 : 1);
+  lastYear = y;
+  state.to = lastYear;
+
+  // A shared link like #18.790,98.980,3 opens on that place.
+  const h = location.hash.slice(1).split(",").map(Number);
+  if (h.length === 3 && h.every(Number.isFinite)) {
+    state.size = [1, 3, 5].includes(h[2]) ? h[2] : 3;
+    document.querySelector(`input[name="size"][value="${state.size}"]`).checked = true;
+    state.lat = h[0]; state.lon = h[1];
+    state.name = isSingapore() ? "Singapore" : `${h[0].toFixed(2)}, ${h[1].toFixed(2)}`;
+  }
+
+  setupMap();
+  fillYearSelects();
+  fillMethod();
+  await update();
+}
+
+start().catch(err => {
+  document.getElementById("place").textContent = "Could not load the data.";
+  document.getElementById("now-sentence").textContent =
+    location.protocol === "file:" ? "Open this page through a web server (see README), not by double-clicking the file." : String(err);
+});
+</script>
+</body>
+</html>
