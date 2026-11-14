@@ -423,7 +423,8 @@ async function writeSingaporeWarning() {
     [wind] = await getWind([[state.lat, state.lon]]);
     toward = angleDiff((wind.from + 180) % 360, fireToCity) <= 45;
     windText = `<strong>Wind at Singapore now:</strong> ${Math.round(wind.speed)} km/h from the ${compass(wind.from)}, `
-      + (toward ? `blowing from ${lead.name} toward Singapore.` : `so smoke from ${lead.name} is not heading this way.`);
+      + (toward ? `blowing from ${lead.name} toward Singapore.` : `so smoke from ${lead.name} is not heading this way.`)
+      + ` <span class="help">Wind data: <a href="https://open-meteo.com/">Open-Meteo</a>.</span>`;
   } catch {
     const month = new Date(now.through + "T00:00:00Z").getUTCMonth();
     toward = month >= 5 && month <= 9;
@@ -732,7 +733,7 @@ async function getWind(pts) {
 // ---------- map ----------
 
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
-const ESRI_ATTR = "Basemap &copy; Esri · Fires: NASA FIRMS";
+const ESRI_ATTR = 'Basemap &copy; Esri · Fires: NASA FIRMS · Search &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 // Fire dots: colour = how many fires (same "darker = more" rule as the calendar).
 const FIRE_BINS = [[2, "--b3", "1–2"], [9, "--b5", "3–9"], [49, "--b7", "10–49"], [Infinity, "--b8", "50+"]];
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
