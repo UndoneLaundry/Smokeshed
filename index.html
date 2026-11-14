@@ -16,6 +16,8 @@
     /* ColorBrewer "Oranges": one hue, light -> dark, colour-blind safe */
     --b1: #fee6ce; --b2: #fdd0a2; --b3: #fdae6b; --b4: #fd8d3c;
     --b5: #f16913; --b6: #d94801; --b7: #a63603; --b8: #7f2704;
+    /* "Compared with normal": ColorBrewer RdBu, blue = quieter, grey = normal, red = busier */
+    --dm3: #2166ac; --dm2: #67a9cf; --dm1: #d1e5f0; --d0: #e4e3de; --d1: #fddbc7; --d2: #ef8a62; --d3: #b2182b;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -23,6 +25,7 @@
       --accent: #fb923c; --zero: #262624; --tip-bg: #f0efec; --tip-ink: #0d0d0d; --wind: #c9d4e3;
       --b1: #4a1d06; --b2: #6b2a07; --b3: #8f3a08; --b4: #b84c0b;
       --b5: #e0640f; --b6: #f5842e; --b7: #fbab6b; --b8: #fdd3a8;
+      --dm3: #5aa3e8; --dm2: #2f6ea3; --dm1: #253f57; --d0: #383835; --d1: #5c3027; --d2: #b4513a; --d3: #f2735f;
     }
   }
   :root[data-theme="dark"] {
@@ -30,6 +33,7 @@
     --accent: #fb923c; --zero: #262624; --tip-bg: #f0efec; --tip-ink: #0d0d0d; --wind: #c9d4e3;
     --b1: #4a1d06; --b2: #6b2a07; --b3: #8f3a08; --b4: #b84c0b;
     --b5: #e0640f; --b6: #f5842e; --b7: #fbab6b; --b8: #fdd3a8;
+    --dm3: #5aa3e8; --dm2: #2f6ea3; --dm1: #253f57; --d0: #383835; --d1: #5c3027; --d2: #b4513a; --d3: #f2735f;
   }
 
   * { box-sizing: border-box; }
@@ -120,6 +124,20 @@
   #calendar .c { height: 16px; border-radius: 3px; background: var(--zero); }
   .nodata { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 5px) !important; }
   #calendar .c.latest { outline: 2px solid var(--ink); outline-offset: -1px; }
+  #calendar .c.event { outline: 3px solid var(--accent); outline-offset: -1px; }
+  #calendar .c.season { box-shadow: inset 0 -3px 0 var(--ink); }   /* fire-season months in the "Usual" row */
+  #calendar .yr.usual { font-weight: 700; color: var(--ink); }
+  #calendar .gap-row { grid-column: 1 / -1; height: 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  .dm3 { background: var(--dm3) !important; } .dm2 { background: var(--dm2) !important; } .dm1 { background: var(--dm1) !important; }
+  .d0 { background: var(--d0) !important; } .d1 { background: var(--d1) !important; }
+  .d2 { background: var(--d2) !important; } .d3 { background: var(--d3) !important; }
+  h3.minor { font-size: 14px; margin: 20px 0 6px; }
+  .years { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; align-items: end; height: 70px; }
+  .years div { background: var(--b5); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .years div.partial { background: repeating-linear-gradient(45deg, var(--b3) 0 3px, var(--b5) 3px 6px); }
+  .years-axis { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; font-size: 11px; color: var(--ink-2); }
+  .years-axis span { white-space: nowrap; overflow: visible; }
+  .event-box { border-left: 4px solid var(--accent); }
   #calendar .switch { grid-column: 1 / -1; font-size: 11px; color: var(--ink-2); border-top: 1px dashed var(--ink-2); padding: 1px 0 2px 42px; margin: 2px 0; }
   .b1 { background: var(--b1) !important; } .b2 { background: var(--b2) !important; }
   .b3 { background: var(--b3) !important; } .b4 { background: var(--b4) !important; }
@@ -141,7 +159,7 @@
 <body>
 <header>
   <h1>Smoke<span>shed</span></h1>
-  <p class="tag">Is it burning near you right now, and is that normal? NASA fire satellites, harmonized from 2001 to today.</p>
+  <p class="tag">A harmonized burning calendar for anywhere on Earth: NASA's MODIS and VIIRS fire satellites as one record, 2001 to today, with an early warning for right now.</p>
   <button type="button" id="tour-help" aria-label="Take the guided tour" title="Take the guided tour">?</button>
 </header>
 
@@ -159,12 +177,14 @@
       <button type="button" data-lat="-3.12" data-lon="-60.02" data-name="Manaus">Manaus</button>
       <button type="button" data-lat="-33.87" data-lon="151.21" data-name="Sydney">Sydney</button>
     </div>
+    <div class="chips" id="famous" style="margin-top:6px">Famous fires:</div>
     </div>
     <div id="map" data-tour="map" role="application" aria-label="Map: click anywhere to check it"></div>
   </section>
 
   <section id="answer" aria-live="polite">
     <p class="eyebrow" id="place">Loading…</p>
+    <div class="callout event-box" id="event" hidden></div>
 
     <!-- 1. Right now -->
     <div data-tour="status">
@@ -173,6 +193,7 @@
       <div class="week" id="week" aria-hidden="true"></div>
       <div class="week-days" id="week-days" aria-hidden="true"></div>
       <p class="help" id="help-now"></p>
+      <p class="sub" id="coming" style="margin-top:8px"></p>
     </div>
     <div class="callout" id="singapore" data-tour="singapore" hidden>
       <p id="warn"></p>
@@ -191,15 +212,27 @@
         </span>
       </span>
       <span>Years: <select id="from" aria-label="From year"></select> to <select id="to" aria-label="To year"></select></span>
+      <span>Colour:
+        <span class="seg" role="radiogroup" aria-label="Calendar colours">
+          <label><input type="radio" name="view" value="count" checked><span>Fire count</span></label>
+          <label><input type="radio" name="view" value="anom"><span>Compared with normal</span></label>
+        </span>
+      </span>
       <button id="csv" type="button" data-tour="csv">Download CSV</button>
     </div>
     <div data-tour="calendar">
-      <p class="help" style="margin:0 0 8px">Each square is one month. <b>Darker = more fires.</b> Hover a square for the number.</p>
+      <p class="help" id="cal-help" style="margin:0 0 4px"></p>
+      <p class="help" id="cal-note" style="margin:0 0 8px"></p>
       <div id="calendar"></div>
       <div id="legend"></div>
     </div>
 
-    <details>
+    <h3 class="minor">Fires per year</h3>
+    <div class="years" id="years"></div>
+    <div class="years-axis" id="years-axis" aria-hidden="true"></div>
+    <p class="help" id="trend"></p>
+
+    <details id="method-box">
       <summary>How the numbers are made</summary>
       <ul id="method"></ul>
     </details>
@@ -227,7 +260,24 @@ const fmt = n => Math.round(n).toLocaleString("en-US");
 const dayLabel = iso => { const d = new Date(iso + "T00:00:00Z"); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; };
 const daysInMonth = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();   // m is 0-11
 
-const state = { lat: 1.352, lon: 103.82, name: "Singapore", size: 3, from: FIRST_YEAR, to: null };
+const state = { lat: 1.352, lon: 103.82, name: "Singapore", size: 3, from: FIRST_YEAR, to: null,
+                view: "count",   // calendar colours: "count" or "anom" (compared with normal)
+                event: null };   // index into EVENTS when a famous fire was clicked
+
+// Famous fires: one click shows the place, a short summary, and outlines the months.
+// Each location was checked: the event is the #1 month on record in its ~330 km area.
+const EVENTS = [
+  { name: "Indonesia haze 2015", place: "South Sumatra", lat: -3.0, lon: 105.0, months: ["2015-09", "2015-10"],
+    text: "During the 2015 El Niño drought, peatland fires burned across Sumatra and Kalimantan for months and blanketed Southeast Asia in haze." },
+  { name: "Australia's Black Summer", place: "New South Wales south coast", lat: -35.7, lon: 150.18, months: ["2019-12", "2020-01"],
+    text: "Australia's 2019–20 \"Black Summer\" bushfires burned across the southeast for months; New South Wales and Victoria were hit hardest." },
+  { name: "Pantanal 2020", place: "Corumbá, Brazil", lat: -18.0, lon: -57.0, months: ["2020-08", "2020-09"],
+    text: "During a severe drought in 2020, fires swept through an unusually large part of the Pantanal, the world's largest tropical wetland." },
+  { name: "California 2020", place: "Northern California", lat: 39.8, lon: -122.8, months: ["2020-08", "2020-09"],
+    text: "Lightning in August 2020 started the August Complex, which grew into California's largest recorded wildfire." },
+  { name: "Canada 2023", place: "Quebec", lat: 49.05, lon: -76.98, months: ["2023-06"],
+    text: "Canada's 2023 fire season was its worst on record; in June, fires in Quebec sent thick smoke as far as New York City." },
+];
 let meta, smokeshed, now, map, overlay, series = [], lastFull = 0, lastYear = 0;
 
 // ---------- data loading ----------
@@ -444,10 +494,49 @@ function historySentence(where) {
   let worst = 0;
   for (let i = 1; i < idxOf(lastYear, 0); i++) if (series[i] > series[worst]) worst = i;
   if (series[worst] === 0) return "No vegetation fires detected here by NASA satellites since 2001.";
-  const meds = MONTHS.map((_, k) => usualMonth(series, k));
-  const peak = meds.indexOf(Math.max(...meds));
-  const season = meds[peak] > 0 ? ` Fire season usually peaks in ${MONTHS_LONG[peak]}.` : "";
-  return `${s}${season} Worst month on record: ${MONTHS_LONG[worst % 12]} ${FIRST_YEAR + Math.floor(worst / 12)} (${fmt(series[worst])}).`;
+  const season = fireSeason();
+  const seasonTxt = !season.text ? "" : season.text === "all year" ? " Fires here happen all year round."
+    : season.text.includes("–") || season.text.includes(" and ") ? ` Fire season here usually runs ${season.text}.`
+    : ` Fire season here usually peaks in ${season.text}.`;
+  return `${s}${seasonTxt} Worst month on record: ${MONTHS_LONG[worst % 12]} ${FIRST_YEAR + Math.floor(worst / 12)} (${fmt(series[worst])}).`;
+}
+
+// The critical period: months whose usual fire count is at least half of the busiest month's.
+function fireSeason() {
+  const meds = MONTHS.map((_, m) => usualMonth(series, m));
+  const max = Math.max(...meds);
+  const set = new Set(max > 0 ? meds.flatMap((v, m) => (v >= max / 2 ? [m] : [])) : []);
+  // Fill one-month gaps (Aug + Oct -> Aug-Oct): a season doesn't pause for a month.
+  for (let m = 0; m < 12; m++) if (set.has((m + 11) % 12) && set.has((m + 1) % 12)) set.add(m);
+  if (!set.size) return { set, text: "" };
+  if (set.size === 12) return { set, text: "all year" };
+  const runs = [];
+  for (let m = 0; m < 12; m++) {
+    if (!set.has(m) || set.has((m + 11) % 12)) continue;  // only start at the first month of a run
+    let end = m;
+    while (set.has((end + 1) % 12)) end = (end + 1) % 12;
+    runs.push(m === end ? MONTHS_LONG[m] : `${MONTHS_LONG[m]}–${MONTHS_LONG[end]}`);
+  }
+  return { set, text: runs.join(" and ") };
+}
+
+// "Coming up": is next month usually busier or quieter? Anticipating critical periods.
+function comingUp() {
+  const m = new Date(now.through + "T00:00:00Z").getUTCMonth(), n = (m + 1) % 12;
+  const a = usualMonth(series, m), b = usualMonth(series, n);
+  if (a === 0 && b === 0) return "";
+  const season = fireSeason();
+  const edge = season.set.has(n) && !season.set.has(m) ? ` That's the start of the usual fire season (${season.text}).`
+             : !season.set.has(n) && season.set.has(m) ? ` The usual fire season (${season.text}) is ending.` : "";
+  let s;
+  if (a === 0) s = `${MONTHS_LONG[n]} usually brings about ${fmt(b)} fire hotspots here, up from almost none in ${MONTHS_LONG[m]}.`;
+  else {
+    const r = b / a;
+    s = r >= 1.5 ? `${MONTHS_LONG[n]} is usually ${r.toFixed(1)}× busier than ${MONTHS_LONG[m]} here.`
+      : r <= 0.67 ? `${MONTHS_LONG[n]} usually has about ${Math.round((1 - r) * 100)}% fewer fires than ${MONTHS_LONG[m]} here.`
+      : `${MONTHS_LONG[n]} is usually similar to ${MONTHS_LONG[m]} here.`;
+  }
+  return `<strong>Coming up:</strong> ${s}${edge}`;
 }
 
 function binOf(v, max) {
@@ -456,38 +545,139 @@ function binOf(v, max) {
   return Math.max(1, Math.ceil(Math.sqrt(v / max) * 8));
 }
 
+// "Compared with normal": how far a month is from the usual for that month (-3 quieter ... +3 busier).
+// `minDiff` = the smallest difference that matters here (10% of a usual fire-season month).
+// Smaller differences stay grey: otherwise "30 fires instead of 10" in the off-season would
+// shout as loudly as a fire season gone wrong.
+function anomClass(v, med, minDiff) {
+  let b;
+  if (Math.abs(v - med) < minDiff) b = 0;
+  else if (med === 0) b = 3;   // usually none, now a meaningful amount: very unusual
+  else {
+    const r = v / med;
+    b = r <= 0.25 ? -3 : r <= 0.5 ? -2 : r < 0.8 ? -1 : r <= 1.25 ? 0 : r < 2 ? 1 : r < 4 ? 2 : 3;
+  }
+  return b < 0 ? `dm${-b}` : `d${b}`;
+}
+
+// The MODIS -> VIIRS conversion used for this area (one ratio per 10-degree region).
+function areaRatioText(cells) {
+  const rs = [...new Set(cells.map(([la, lo]) => tileId(la, lo)))].map(t => meta.tile_ratios[t] ?? meta.global_ratio);
+  const lo = Math.round(Math.min(...rs)), hi = Math.round(Math.max(...rs));
+  return lo === hi ? `${lo}` : `${lo}–${hi}`;
+}
+
 function drawCalendar() {
+  const anom = state.view === "anom";
+  const meds = MONTHS.map((_, m) => usualMonth(series, m));
+  const season = fireSeason();
+  const err = (meta.ratio_check.match(/within (\d+)%/) || [])[1] || "?";
+  const ev = state.event === null ? null : EVENTS[state.event];
+  const evIdx = new Set(ev ? ev.months.map(s => idxOf(+s.slice(0, 4), +s.slice(5) - 1)) : []);
   const shown = [];
   for (let y = state.from; y <= state.to; y++) for (let m = 0; m < 12; m++) {
     const i = idxOf(y, m); if (i < meta.n_months) shown.push(series[i]);
   }
   const max = Math.max(1, ...shown);
+  const minDiff = Math.max(3, 0.1 * Math.max(...meds));
+
   const html = ['<div></div>', ...MONTHS.map(m => `<div class="mh">${m[0]}</div>`)];
+  // A usual year (median of each month): the baseline "unusual" is measured against,
+  // with the fire season underlined.
+  html.push(`<div class="yr usual">Usual</div>`);
+  meds.forEach((v, m) => {
+    const t = `Usual ${MONTHS_LONG[m]}: ${fmt(v)} hotspots (median ${FIRST_YEAR}–${lastYear - 1})${season.set.has(m) ? " · fire season" : ""}`;
+    html.push(`<div class="c b${binOf(v, max)}${season.set.has(m) ? " season" : ""}" data-tip="${t}" aria-label="${t}" role="img"></div>`);
+  });
+  html.push(`<div class="gap-row"></div>`);
+
   for (let y = state.to; y >= state.from; y--) {   // newest year on top
     if (y === meta.switch_year - 1 && state.to >= meta.switch_year) {
-      html.push(`<div class="switch">↑ from ${meta.switch_year}: newer VIIRS satellite · ↓ before ${meta.switch_year}: older MODIS satellite, adjusted to match</div>`);
+      html.push(`<div class="switch">↑ from ${meta.switch_year}: newer VIIRS satellite · ↓ before ${meta.switch_year}: older MODIS satellite, converted to match</div>`);
     }
     html.push(`<div class="yr">${y}</div>`);
     for (let m = 0; m < 12; m++) {
       const i = idxOf(y, m);
       if (i >= meta.n_months) { html.push(`<div class="c nodata" data-tip="${MONTHS_LONG[m]} ${y}: not yet"></div>`); continue; }
-      const v = series[i];
-      const src = y >= meta.switch_year ? "VIIRS S-NPP" : "MODIS Terra, scaled";
-      const partial = i === meta.n_months - 1 && i !== lastFull ? " (part of month)" : "";
-      const tip = `${MONTHS_LONG[m]} ${y}${partial}: ${fmt(v)} hotspots · ${src}`;
-      html.push(`<div class="c b${binOf(v, max)}${i === lastFull ? " latest" : ""}" data-tip="${tip}" aria-label="${tip}" role="img"></div>`);
+      const v = series[i], med = meds[m];
+      const partial = i === meta.n_months - 1 && i !== lastFull;
+      const amount = y < meta.switch_year ? `≈${fmt(v)} hotspots (±${err}%, converted from MODIS)` : `${fmt(v)} hotspots`;
+      const cmp = med > 0 ? `, ${(v / med).toFixed(1)}× the usual ${MONTHS_LONG[m]}` : v > 0 ? `; usually none` : "";
+      const t = `${MONTHS_LONG[m]} ${y}${partial ? " (month so far)" : ""}: ${amount}${partial ? "" : cmp}`;
+      // A month that isn't over yet can't be compared with a full usual month.
+      const colour = anom ? (partial ? "nodata" : anomClass(v, med, minDiff)) : `b${binOf(v, max)}`;
+      const extra = (i === lastFull ? " latest" : "") + (evIdx.has(i) ? " event" : "");
+      html.push(`<div class="c ${colour}${extra}" data-tip="${t}" aria-label="${t}" role="img"></div>`);
     }
   }
   document.getElementById("calendar").innerHTML = html.join("");
-  const sw = [1,2,3,4,5,6,7,8].map(b => `<i class="b${b}"></i>`).join("");
-  document.getElementById("legend").innerHTML =
-    `<i style="background:var(--zero)"></i>&nbsp;no fires<span class="gap"></span>fewer&nbsp;${sw}&nbsp;more fires per month (darkest: ${fmt(max)})`
-    + `<span class="gap"></span><i class="nodata"></i>&nbsp;not yet`;
+
+  document.getElementById("cal-help").innerHTML = anom
+    ? `Each square is one month, compared with the usual for that month: <b>red = busier than usual, blue = quieter</b>. Small differences stay grey. Top row: a usual year (fire season underlined).`
+    : `Each square is one month; <b>darker = more fires</b>. Top row: a usual year (fire season underlined). Hover a square for the numbers.`;
+  document.getElementById("legend").innerHTML = anom
+    ? `quieter&nbsp;<i class="dm3"></i><i class="dm2"></i><i class="dm1"></i>&nbsp;<i class="d0"></i>&nbsp;normal&nbsp;`
+      + `<i class="d1"></i><i class="d2"></i><i class="d3"></i>&nbsp;busier than usual (darkest: 4× or more)`
+      + `<span class="gap"></span><i class="nodata"></i>&nbsp;not yet / month not over`
+    : `<i style="background:var(--zero)"></i>&nbsp;no fires<span class="gap"></span>fewer&nbsp;`
+      + [1, 2, 3, 4, 5, 6, 7, 8].map(b => `<i class="b${b}"></i>`).join("")
+      + `&nbsp;more fires per month (darkest: ${fmt(max)})<span class="gap"></span><i class="nodata"></i>&nbsp;not yet`;
 }
 
-// Hover tooltips for the calendar and the 7-day bars.
+// Fires per year, 2001 to now, plus a plain-language trend.
+function drawYears() {
+  const totals = [];
+  for (let y = FIRST_YEAR; y <= lastYear; y++) {
+    let t = 0;
+    for (let m = 0; m < 12; m++) { const i = idxOf(y, m); if (i < meta.n_months) t += series[i]; }
+    totals.push(t);
+  }
+  const max = Math.max(1, ...totals);
+  document.getElementById("years").innerHTML = totals.map((t, k) => {
+    const y = FIRST_YEAR + k, partial = y === lastYear;
+    const label = `${y}${partial ? " so far" : ""}: ${y < meta.switch_year ? "≈" : ""}${fmt(t)} fire hotspots`;
+    return `<div class="${partial ? "partial" : ""}" style="height:${Math.max(2, (t / max) * 100)}%" data-tip="${label}"></div>`;
+  }).join("");
+  document.getElementById("years-axis").innerHTML = totals.map((_, k) =>
+    `<span>${(FIRST_YEAR + k) % 5 === 0 ? FIRST_YEAR + k : ""}</span>`).join("");
+
+  // Compare the last 10 complete years with the first 10.
+  const done = totals.slice(0, lastYear - FIRST_YEAR);
+  const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const a = mean(done.slice(0, 10)), b = mean(done.slice(-10));
+  const first = `${FIRST_YEAR}–${FIRST_YEAR + 9}`, last = `${lastYear - 10}–${lastYear - 1}`;
+  let s = "";
+  if (a > 0 || b > 0) {
+    const ch = (b - a) / Math.max(a, 1);
+    s = Math.abs(ch) < 0.15
+      ? `Long-term: about the same. The last 10 years (${last}) are within 15% of the first 10 (${first}).`
+      : ch >= 1
+      ? `Long-term: the last 10 years (${last}) averaged ${(b / Math.max(a, 1)).toFixed(1)}× as many fires per year as the first 10 (${first}).`
+      : `Long-term: the last 10 years (${last}) averaged ${Math.round(Math.abs(ch) * 100)}% ${ch < 0 ? "fewer" : "more"} fires per year than the first 10 (${first}).`;
+  }
+  document.getElementById("trend").textContent = s;
+}
+
+// The summary box for a famous fire, with what our own data says about it.
+function writeEvent() {
+  const box = document.getElementById("event");
+  if (state.event === null) { box.hidden = true; return; }
+  const ev = EVENTS[state.event];
+  const idx = ev.months.map(s => idxOf(+s.slice(0, 4), +s.slice(5) - 1));
+  const peak = idx.reduce((a, b) => (series[b] > series[a] ? b : a));
+  const rank = series.filter(v => v > series[peak]).length + 1;
+  const m = peak % 12, med = usualMonth(series, m);
+  const when = `${MONTHS_LONG[m]} ${FIRST_YEAR + Math.floor(peak / 12)}`;
+  box.innerHTML = `<p><strong>${ev.name}</strong> · ${ev.place}</p><p>${ev.text}</p>`
+    + `<p class="help">In our calendar: ${when} is ${rank === 1 ? "the busiest month on record" : `#${rank} of all months on record`} in this area, `
+    + `with ${fmt(series[peak])} fire hotspots${med > 0 ? `, ${Math.round(series[peak] / med)}× the usual ${MONTHS_LONG[m]}` : ""}. `
+    + `Those months are outlined in orange in the calendar below.</p>`;
+  box.hidden = false;
+}
+
+// Hover tooltips for the calendar, the 7-day bars and the yearly bars.
 const tip = document.getElementById("tooltip");
-for (const id of ["calendar", "week"]) {
+for (const id of ["calendar", "week", "years"]) {
   const el = document.getElementById(id);
   el.addEventListener("mousemove", e => {
     const t = e.target.dataset && e.target.dataset.tip;
@@ -504,11 +694,12 @@ for (const id of ["calendar", "week"]) {
 document.getElementById("csv").addEventListener("click", () => {
   const area = isSingapore() ? "Singapore smokeshed (Sumatra + Kalimantan boxes)"
                              : `${state.name} (${state.lat.toFixed(3)}, ${state.lon.toFixed(3)}), ${state.size}x${state.size} degree box`;
-  const rows = [["area", "month", "hotspots_viirs_equivalent", "source"]];
+  const rows = [["area", "month", "hotspots_viirs_equivalent", "usual_for_this_month", "source"]];
+  const meds = MONTHS.map((_, m) => usualMonth(series, m));
   for (let y = state.from; y <= state.to; y++) for (let m = 0; m < 12; m++) {
     const i = idxOf(y, m);
     if (i >= meta.n_months) break;
-    rows.push([area, `${y}-${String(m + 1).padStart(2, "0")}`, series[i],
+    rows.push([area, `${y}-${String(m + 1).padStart(2, "0")}`, series[i], meds[m],
                y >= meta.switch_year ? "VIIRS S-NPP" : "MODIS Terra x regional ratio"]);
   }
   const text = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -652,7 +843,13 @@ async function update() {
     : `${state.name} · ~${{ 1: 110, 3: 330, 5: 550 }[state.size]} km area`;
   document.getElementById("size-wrap").style.visibility = sg ? "hidden" : "visible";
   document.getElementById("history").textContent = historySentence(sg ? "in the smokeshed" : "in this area");
+  document.getElementById("coming").innerHTML = comingUp();
+  document.getElementById("cal-note").innerHTML =
+    `Before ${meta.switch_year}, the older MODIS satellite's counts are multiplied by ${areaRatioText(cells)} for this area `
+    + `so they match today's VIIRS satellite. <a href="#method-box" id="how-link">See the proof</a>.`;
+  writeEvent();
   drawCalendar();
+  drawYears();
   drawMap();
   await writeNow(cells);
   // Tell tour.js the page has content, so a tour never points at a "Loading…" page.
@@ -660,8 +857,9 @@ async function update() {
   document.dispatchEvent(new Event("smokeshed:ready"));
 }
 
-function setPlace(lat, lon, name) {
+function setPlace(lat, lon, name, event = null) {
   state.lat = lat; state.lon = wrapLon(lon);
+  state.event = event;  // any other way of picking a place clears the famous-fire box
   state.name = name || `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}, ${Math.abs(state.lon).toFixed(2)}°${state.lon >= 0 ? "E" : "W"}`;
   if (isSingapore() && !name) state.name = "Singapore";
   update();
@@ -669,6 +867,32 @@ function setPlace(lat, lon, name) {
 
 document.querySelectorAll(".chips button").forEach(b =>
   b.addEventListener("click", () => setPlace(+b.dataset.lat, +b.dataset.lon, b.dataset.name)));
+
+// Famous-fire buttons, built from EVENTS. They use the ~330 km area the events were checked with.
+const famous = document.getElementById("famous");
+EVENTS.forEach((ev, k) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = ev.name;
+  b.addEventListener("click", () => {
+    state.size = 3;
+    document.querySelector('input[name="size"][value="3"]').checked = true;
+    setPlace(ev.lat, ev.lon, ev.place, k);
+  });
+  famous.appendChild(b);
+});
+
+document.querySelectorAll('input[name="view"]').forEach(r =>
+  r.addEventListener("change", () => { state.view = r.value; drawCalendar(); }));
+
+// "See the proof" opens the method notes, where the harmonization chart is.
+document.getElementById("cal-note").addEventListener("click", e => {
+  if (e.target.id !== "how-link") return;
+  e.preventDefault();
+  const box = document.getElementById("method-box");
+  box.open = true;
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 document.querySelectorAll('input[name="size"]').forEach(r =>
   r.addEventListener("change", () => { state.size = +r.value; update(); }));
@@ -703,7 +927,10 @@ function fillMethod() {
   document.getElementById("method").innerHTML = `
     <li><b>Right now:</b> fire hotspots from ${now.source}, ${now.days[0]} to ${now.through}, refreshed daily (last update ${now.updated}). "Normal" is the median for this month in ${FIRST_YEAR}–${lastYear - 1}, scaled to 7 days. Surge = 3× normal or more; above normal = 1.5×.</li>
     <li><b>History:</b> NASA FIRMS hotspots: MODIS Terra (1 km, 2001–2012) and VIIRS S-NPP (375 m, 2013 on), vegetation fires only, low-confidence detections and known gas flares removed. Calendar data to ${meta.data_through}.</li>
-    <li><b>Harmonizing:</b> VIIRS sees many more small fires than MODIS (worldwide ${meta.global_ratio}× as many). While both flew (${meta.overlap_years.join("–")}) we measured that ratio separately in each 10° region and converted older MODIS counts into VIIRS-equivalent counts, so every year is comparable. ${meta.ratio_check}</li>
+    <li><b>Harmonizing:</b> VIIRS sees many more small fires than MODIS (worldwide ${meta.global_ratio}× as many). While both flew (${meta.overlap_years.join("–")}) we measured that ratio separately in each 10° region and converted older MODIS counts into VIIRS-equivalent counts, so every year is comparable. ${meta.ratio_check}
+      <img src="docs/harmonization.png" alt="Chart: in 2013–2014, raw MODIS counts sit far below VIIRS; after conversion they line up with VIIRS in both Indonesia and California."
+           style="display:block;max-width:100%;margin-top:8px;border:1px solid var(--line);border-radius:6px"></li>
+    <li><b>"Usual" and "compared with normal":</b> the median of the same month in ${FIRST_YEAR}–${lastYear - 1}. Fire season = months with at least half the busiest month's usual count. Famous-fire summaries are short background notes; the numbers next to them come from our own data.</li>
     <li><b>Singapore's smokeshed:</b> ${smokeshed.sentence} <a href="docs/feasibility.png">See the chart.</a> Live PM2.5 from NEA via data.gov.sg.</li>
     <li><b>Map:</b> each fire dot is the average position of the fires in a ~28 km square; colour = how many, faded = none in the last 2 days. Satellite image from NASA GIBS (VIIRS NOAA-20 true colour).</li>
     <li><b>Wind:</b> Singapore's current 10 m wind from Open-Meteo (a weather model). The warning checks whether it blows from a fire region toward Singapore.</li>`;

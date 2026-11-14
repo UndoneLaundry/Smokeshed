@@ -8,7 +8,7 @@
    Tip for demos: index.html?tour=4 opens the tour at step 4. */
 const TOUR_STEPS = [
   { target: '[data-tour="place"]', title: "Pick a place",
-    text: "Search for a city, tap one under “Try”, or click anywhere on the map. The whole page updates for that place." },
+    text: "Search for a city, tap one under “Try” or a famous fire, or click anywhere on the map. The whole page updates for that place." },
   { target: '[data-tour="status"]', title: "Is it burning more than normal?",
     text: "Fires seen by NASA satellites in the last 7 days, compared with a normal week for this month since 2001: Quiet, Normal, Above normal or Surge." },
   { target: '[data-tour="singapore"]', title: "Singapore haze warning",
@@ -16,7 +16,7 @@ const TOUR_STEPS = [
   { target: '[data-tour="map"]', title: "The map",
     text: "Dots are fires from the last 7 days: darker = more, faded = not burning in the last 2 days. Switch to “Satellite” to see yesterday's real clouds and smoke." },
   { target: '[data-tour="calendar"]', title: "The burning calendar",
-    text: "Each square is one month since 2001; darker means more fires. Hover a square for the exact number." },
+    text: "Each square is one month since 2001; the top row is a usual year. Switch to “Compared with normal” to spot unusual months: red = busier than usual." },
   { target: '[data-tour="csv"]', title: "Take the data with you",
     text: "Download the months shown as a CSV file for a report or spreadsheet." },
 ];
