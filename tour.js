@@ -55,7 +55,7 @@ const TOUR_STEPS = [
     .tour-btns .tour-skip { border: 0; background: none; color: var(--ink-2); padding: 6px 4px; text-decoration: underline; }
     .tour-btns .tour-space { flex: 1; }
     .tour-btns button:disabled { opacity: .4; cursor: default; }
-    .tour-banner { position: fixed; z-index: 1000; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px;
+    .tour-banner { position: fixed; z-index: 1000; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px;
                    background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
                    box-shadow: 0 6px 20px rgba(0,0,0,.2); padding: 8px 8px 8px 14px; font-size: 14px; }
     .tour-banner .tour-x { border: 0; background: none; font-size: 18px; line-height: 1; padding: 4px 8px; color: var(--ink-2); }

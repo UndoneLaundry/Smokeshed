@@ -25,6 +25,7 @@ from pipeline.config import REPO_ROOT, get_firms_map_key
 from pipeline.fetch_recent import availability, chunks, fetch_rows, load_static_spots, near_static
 
 DAYS = 7
+POINT_DEG = 0.25  # map dots: fires grouped into ~28 km squares (keeps the file small)
 SOURCES = {  # in order of preference
     "VIIRS_SNPP_NRT": "VIIRS S-NPP",
     "VIIRS_NOAA20_NRT": "VIIRS NOAA-20",
@@ -50,16 +51,23 @@ def main() -> None:
     days = [str(start + timedelta(days=i)) for i in range(DAYS)]
     static = load_static_spots()
 
-    cells: dict[str, list[int]] = {}
+    cells: dict[str, list[int]] = {}   # 1-degree cells: daily counts, for the status numbers
+    spots: dict[tuple, list] = {}      # 0.25-degree cells: [sum lat, sum lon, count], for map dots
     for chunk_start, n in chunks(start, end):
         for row in fetch_rows(key, source, chunk_start, n):
             if row["confidence"] == "l" or near_static(row, static):
                 continue
             if row["acq_date"] not in days:
                 continue
-            lat, lon = int(float(row["latitude"]) // 1), int(float(row["longitude"]) // 1)
-            counts = cells.setdefault(f"{lat},{lon}", [0] * DAYS)
+            la, lo = float(row["latitude"]), float(row["longitude"])
+            counts = cells.setdefault(f"{int(la // 1)},{int(lo // 1)}", [0] * DAYS)
             counts[days.index(row["acq_date"])] += 1
+            s = spots.setdefault((int(la // POINT_DEG), int(lo // POINT_DEG)), [0.0, 0.0, 0])
+            s[0] += la; s[1] += lo; s[2] += 1
+
+    # Each map dot sits at the average position of the real fires in its ~28 km
+    # square, so dots follow the actual fire pattern instead of a fixed grid.
+    points = [[round(sla / n, 2), round(slo / n, 2), n] for sla, slo, n in spots.values()]
 
     OUT.write_text(json.dumps({
         "through": str(end),
@@ -67,6 +75,7 @@ def main() -> None:
         "source": f"{SOURCES[source]} (near real time)",
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "cells": cells,
+        "points": points,  # [lat, lon, fires in last 7 days]
     }, separators=(",", ":")))
     total = sum(sum(c) for c in cells.values())
     print(f"{total:,} fire hotspots worldwide, {days[0]} to {days[-1]} ({SOURCES[source]}), "

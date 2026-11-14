@@ -550,15 +550,18 @@ function setupMap() {
   });
   new Legend({ position: "bottomleft" }).addTo(map);
 
-  // Fires right now: one dot per 1-degree cell, area grows with the 7-day count.
+  // Fires right now. Each dot sits where the real fires were: the average position
+  // of the fires in a ~28 km square (now.points). Older now.json files only have
+  // 1-degree cells, so fall back to cell centres for those.
+  const points = now.points
+    || Object.entries(now.cells).map(([c, d]) => { const [la, lo] = c.split(",").map(Number);
+                                                    return [la + 0.5, lo + 0.5, d.reduce((a, b) => a + b, 0)]; });
   const fires = L.layerGroup().addTo(map);
-  for (const [cell, days] of Object.entries(now.cells)) {
-    const n = days.reduce((a, b) => a + b, 0);
-    const [la, lo] = cell.split(",").map(Number);
-    L.circleMarker([la + 0.5, lo + 0.5], {
-      radius: Math.min(14, 2 + Math.sqrt(n) / 3), color: "#ffffff", weight: 0.6,
+  for (const [la, lo, n] of points) {
+    L.circleMarker([la, lo], {
+      radius: Math.min(10, 1.5 + Math.sqrt(n) / 2.5), color: "#ffffff", weight: 0.5,
       fillColor: "#f16913", fillOpacity: 0.8,
-    }).bindTooltip(`${fmt(n)} fire hotspots in the last 7 days`).addTo(fires);
+    }).bindTooltip(`${fmt(n)} fire hotspot${n === 1 ? "" : "s"} in the last 7 days`).addTo(fires);
   }
 
   overlay = L.featureGroup().addTo(map);
