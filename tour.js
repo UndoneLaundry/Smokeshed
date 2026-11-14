@@ -14,7 +14,7 @@ const TOUR_STEPS = [
   { target: '[data-tour="singapore"]', title: "Singapore haze warning",
     text: "When fires surge in Sumatra, Singapore's air has got worse about 1 day later (“~1 day”). Below it: Singapore's air quality right now." },
   { target: '[data-tour="map"]', title: "The map",
-    text: "Dots are fires from the last 7 days: darker = more, faded = not burning in the last 2 days. Grey arrows show where the wind is carrying smoke right now." },
+    text: "Dots are fires from the last 7 days: darker = more, faded = not burning in the last 2 days. Switch to “Satellite” to see yesterday's real clouds and smoke." },
   { target: '[data-tour="calendar"]', title: "The burning calendar",
     text: "Each square is one month since 2001; darker means more fires. Hover a square for the exact number." },
   { target: '[data-tour="csv"]', title: "Take the data with you",

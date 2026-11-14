@@ -77,10 +77,6 @@
   .map-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f16913;
                      border: 1px solid #fff; vertical-align: -1px; margin-right: 5px; }
   .map-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin: 0 3px 0 0; }
-  .map-legend .arrow { display: inline-block; width: 14px; color: var(--wind); font-weight: 700; margin-right: 2px; }
-  .basemap .wind-btn { border-left: 1px solid var(--line); }
-  .wind-arrow svg { display: block; transition: transform .2s; }
-  .wind-arrow path { fill: var(--wind); stroke: var(--surface); stroke-width: 1.3; opacity: .85; }
   .map-legend .line { display: inline-block; width: 14px; height: 3px; background: #c2410c; vertical-align: 3px; margin-right: 4px; }
   .map-legend .rect { display: inline-block; width: 12px; height: 9px; border: 2px dashed #c2410c; vertical-align: -1px; margin-right: 4px; }
   .box-label { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-size: 12px; font-weight: 600; box-shadow: none; }
@@ -545,42 +541,10 @@ async function getWind(pts) {
 // ---------- map ----------
 
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
-const ESRI_ATTR = "Basemap &copy; Esri · Fires: NASA FIRMS · Wind: Open-Meteo";
+const ESRI_ATTR = "Basemap &copy; Esri · Fires: NASA FIRMS";
 // Fire dots: colour = how many fires (same "darker = more" rule as the calendar).
 const FIRE_BINS = [[2, "--b3", "1–2"], [9, "--b5", "3–9"], [49, "--b7", "10–49"], [Infinity, "--b8", "50+"]];
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-let windLayer, windOn = true, windSeq = 0, windTimer;
-
-function arrowIcon(toDeg) {  // an arrow pointing the way the wind blows (0 = north)
-  return L.divIcon({ className: "wind-arrow", iconSize: [26, 26], iconAnchor: [13, 13],
-    html: `<svg viewBox="0 0 26 26" width="26" height="26" style="transform:rotate(${toDeg}deg)">`
-        + `<path d="M13 3 L18.5 11 L14.6 11 L14.6 23 L11.4 23 L11.4 11 L7.5 11 Z"/></svg>` });
-}
-
-// Wind arrows on a 7 x 6 grid over whatever part of the map is in view.
-async function drawWind() {
-  if (!windOn) { windLayer.clearLayers(); return; }
-  const b = map.getBounds(), cols = window.innerWidth < 600 ? 5 : 7, rows = 6;
-  const pts = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const lat = b.getSouth() + (r + 0.5) * (b.getNorth() - b.getSouth()) / rows;
-    const lon = b.getWest() + (c + 0.5) * (b.getEast() - b.getWest()) / cols;
-    if (Math.abs(lat) < 85) pts.push([lat, lon]);
-  }
-  const seq = ++windSeq;
-  try {
-    const wind = await getWind(pts.map(([la, lo]) => [la, wrapLon(lo)]));
-    if (seq !== windSeq || !windOn) return;  // the map moved again meanwhile: a newer request wins
-    windLayer.clearLayers();
-    wind.forEach((w, k) => {
-      const to = (w.from + 180) % 360;
-      L.marker(pts[k], { icon: arrowIcon(to), keyboard: false })
-        .bindTooltip(`Wind ${Math.round(w.speed)} km/h from the ${compass(w.from)}: smoke drifts ${compass(to)}`)
-        .on("click", e => setPlace(e.latlng.lat, e.latlng.lng))
-        .addTo(windLayer);
-    });
-  } catch { /* wind is a bonus: the map works without it */ }
-}
 
 function setupMap() {
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
@@ -603,21 +567,13 @@ function setupMap() {
     onAdd() {
       const div = L.DomUtil.create("div", "map-box basemap");
       div.innerHTML = `<button type="button" aria-pressed="true" data-k="grey">Map</button>`
-                    + `<button type="button" aria-pressed="false" data-k="sat">Satellite · ${dayLabel(now.through)}</button>`
-                    + `<button type="button" aria-pressed="true" data-k="wind" class="wind-btn">Wind</button>`;
+                    + `<button type="button" aria-pressed="false" data-k="sat">Satellite · ${dayLabel(now.through)}</button>`;
       L.DomEvent.disableClickPropagation(div);
-      const base = [...div.querySelectorAll("button:not(.wind-btn)")];
-      base.forEach(b => b.addEventListener("click", () => {
+      div.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
         const sat = b.dataset.k === "sat";
         map.removeLayer(sat ? grey : satellite); map.addLayer(sat ? satellite : grey);
-        base.forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        div.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
       }));
-      const windBtn = div.querySelector(".wind-btn");
-      windBtn.addEventListener("click", () => {  // wind arrows on/off, independent of the background
-        windOn = !windOn;
-        windBtn.setAttribute("aria-pressed", String(windOn));
-        drawWind();
-      });
       return div;
     },
   });
@@ -629,7 +585,6 @@ function setupMap() {
       const sw = FIRE_BINS.map(([, v, label]) => `<span class="sw" style="background:${cssVar(v)}"></span>${label}`).join(" ");
       div.innerHTML = `<b>Fires, last 7 days</b> (per ~28 km spot)<br>${sw}<br>`
                     + `<span class="sw" style="background:${cssVar("--b5")};opacity:.3"></span>faded = not burning in the last 2 days<br>`
-                    + `<span class="arrow" aria-hidden="true">➜</span>Wind: where smoke drifts now<br>`
                     + `<span class="rect"></span><span id="legend-area">Your area</span><br>`
                     + `<span id="legend-path"><span class="line"></span>Smoke path: days to reach Singapore<br></span>`
                     + `<span style="color:var(--ink-2)">Click anywhere to check it</span>`;
@@ -656,10 +611,6 @@ function setupMap() {
     }).bindTooltip(`${fmt(n)} fire hotspot${n === 1 ? "" : "s"} in the last 7 days · last seen ${dayLabel(now.days[last])}`)
       .addTo(fires);
   }
-
-  windLayer = L.layerGroup().addTo(map);
-  map.on("moveend", () => { clearTimeout(windTimer); windTimer = setTimeout(drawWind, 300); });
-
   overlay = L.featureGroup().addTo(map);
   map.on("click", e => setPlace(e.latlng.lat, e.latlng.lng));
 }
@@ -754,7 +705,8 @@ function fillMethod() {
     <li><b>History:</b> NASA FIRMS hotspots: MODIS Terra (1 km, 2001–2012) and VIIRS S-NPP (375 m, 2013 on), vegetation fires only, low-confidence detections and known gas flares removed. Calendar data to ${meta.data_through}.</li>
     <li><b>Harmonizing:</b> VIIRS sees many more small fires than MODIS (worldwide ${meta.global_ratio}× as many). While both flew (${meta.overlap_years.join("–")}) we measured that ratio separately in each 10° region and converted older MODIS counts into VIIRS-equivalent counts, so every year is comparable. ${meta.ratio_check}</li>
     <li><b>Singapore's smokeshed:</b> ${smokeshed.sentence} <a href="docs/feasibility.png">See the chart.</a> Live PM2.5 from NEA via data.gov.sg.</li>
-    <li><b>Map:</b> each fire dot is the average position of the fires in a ~28 km square; colour = how many, faded = none in the last 2 days. Satellite image from NASA GIBS (VIIRS NOAA-20 true colour). Wind arrows: current 10 m wind from Open-Meteo (a weather model), pointing where the air, and smoke, is moving.</li>`;
+    <li><b>Map:</b> each fire dot is the average position of the fires in a ~28 km square; colour = how many, faded = none in the last 2 days. Satellite image from NASA GIBS (VIIRS NOAA-20 true colour).</li>
+    <li><b>Wind:</b> Singapore's current 10 m wind from Open-Meteo (a weather model). The warning checks whether it blows from a fire region toward Singapore.</li>`;
 }
 
 async function start() {
