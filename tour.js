@@ -138,7 +138,10 @@ const TOUR_STEPS = [
     nextBtn.textContent = current === steps.length - 1 ? "Done" : "Next";
     live.textContent = `${label}. ${step.title}. ${step.text}`;
 
-    target.scrollIntoView({ block: isNarrow() ? "start" : "center", behavior: "instant" });
+    // Centre the target, unless it's taller than the screen: then show its top,
+    // so people see where it begins, not its middle.
+    const tall = target.getBoundingClientRect().height > window.innerHeight * 0.75;
+    target.scrollIntoView({ block: isNarrow() || tall ? "start" : "center", behavior: "instant" });
     position();
     popup.focus({ preventScroll: true });
   }

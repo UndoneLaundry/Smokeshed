@@ -45,7 +45,7 @@
   .tag { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
 
   main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); min-height: calc(100vh - 62px); }
-  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } #where { border-right: 0; } #map { min-height: 380px; } }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } #where { border-right: 0; } #map { flex: none; height: 380px; min-height: 0; } }
 
   /* ---------- left: where? ---------- */
   #where { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--line); }
@@ -58,6 +58,14 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2); }
   .chips button { padding: 3px 10px; font-size: 13px; border-radius: 999px; }
   #map { flex: 1; min-height: 420px; border-radius: 8px; border: 1px solid var(--line); }
+  /* Wide screens: the map column is exactly one screen tall and stays put while the
+     answer scrolls. (Before, it stretched to the answer's full height, and Leaflet
+     left the part below its first size blank.) */
+  @media (min-width: 861px) {
+    main { align-items: start; }
+    #where { position: sticky; top: 0; height: calc(100vh - 64px); }
+    #map { min-height: 0; }
+  }
 
   /* map controls (basemap switch, legend) */
   .map-box { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
