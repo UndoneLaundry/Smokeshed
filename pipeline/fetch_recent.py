@@ -7,9 +7,9 @@ Why this script exists: FIRMS yearly files only exist for finished years, so
 2026 has to come from the API, which gives at most 5 days per request.
   - Archive data (VIIRS_SNPP_SP) is final: each 5-day chunk is cached and
     never downloaded twice.
-  - Near-real-time data (VIIRS_SNPP_NRT) covers roughly the last 3 months and
-    is re-downloaded on every run, so rerunning before submission refreshes
-    the "last few days".
+  - Near-real-time data (VIIRS_SNPP_NRT, then VIIRS_NOAA20_NRT after S-NPP's
+    feed stopped on 2 Nov 2026) covers roughly the last 3 months and is
+    re-downloaded on every run, so rerunning refreshes the "last few days".
 
 Near-real-time rows have no `type` column, so they can't say "this is a gas
 flare, not a fire". Gas flares and volcanoes don't move, so we remember where
@@ -36,6 +36,9 @@ from pipeline.config import REPO_ROOT, get_firms_map_key
 
 API = "https://firms.modaps.eosdis.nasa.gov/api"
 ARCHIVE, NRT = "VIIRS_SNPP_SP", "VIIRS_SNPP_NRT"
+# S-NPP's near-real-time feed stopped on 2 Nov 2026. NOAA-20 carries an
+# identical VIIRS instrument, so it fills the days after S-NPP's last day.
+NRT_BACKUP = "VIIRS_NOAA20_NRT"
 CHUNK_DAYS = 5  # the API maximum
 RECENT_DIR = REPO_ROOT / "data" / "raw" / "firms" / "recent"
 
@@ -154,16 +157,24 @@ def main() -> None:
         daily.update(part["daily"])
         static.update(tuple(s) for s in part["static"])
 
+    # Stop at yesterday: today is only partly observed and would look "quiet".
+    yesterday = date.today() - timedelta(days=1)
+    nrt_end = min(nrt_end, yesterday)
+    backup_end = min(avail[NRT_BACKUP][1], yesterday) if NRT_BACKUP in avail else nrt_end
+    plan = [(NRT, archive_end + timedelta(days=1), nrt_end), (NRT_BACKUP, nrt_end + timedelta(days=1), backup_end)]
+
     dropped = 0
-    for start, days in chunks(archive_end + timedelta(days=1), nrt_end):
-        for row in fetch_rows(key, NRT, start, days):
-            if row["confidence"] == "l":
-                continue
-            if near_static(row, static):
-                dropped += 1
-                continue
-            add_count(daily, row)
-        print(f"near-real-time  {start} (+{days}d)", flush=True)
+    for source, first, last in plan:
+        for start, days in chunks(first, last):
+            for row in fetch_rows(key, source, start, days):
+                if row["confidence"] == "l":
+                    continue
+                if near_static(row, static):
+                    dropped += 1
+                    continue
+                add_count(daily, row)
+            print(f"near-real-time  {source}  {start} (+{days}d)", flush=True)
+    nrt_end = max(nrt_end, backup_end)
 
     save_static_spots(static)
     out = RECENT_DIR / f"daily_{year_start.year}.json"

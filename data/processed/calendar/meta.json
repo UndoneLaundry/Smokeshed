@@ -1,7 +1,7 @@
 {
  "first_month": "2001-01",
  "n_months": 311,
- "data_through": "2026-11-02",
+ "data_through": "2026-11-14",
  "cell_degrees": 1,
  "tile_degrees": 10,
  "units": "VIIRS-equivalent hotspots per month",
@@ -201,5 +201,5 @@
   "60_90": 10.743
  },
  "ratio_check": "Check: ratios learned from 2013 predicted 2014 VIIRS totals within 11% (median error) across 189 fire-active regions.",
- "built": "2026-11-14"
+ "built": "2026-11-15"
 }
