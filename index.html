@@ -245,7 +245,7 @@
 "use strict";
 /* Smokeshed front end: plain JavaScript, no build step.
    Pre-computed data (see pipeline/):
-     data/processed/now.json                 fires per 1-degree cell, last 7 days (updated daily by a GitHub Action)
+     data/processed/now.json                 fires per 1-degree cell, last 7 days (refreshed by hand: python -m pipeline.build_now)
      data/processed/calendar/meta.json       months, harmonization ratios
      data/processed/calendar/tile_*.json     monthly fires per 1-degree cell, 2001 to now
      data/processed/smokeshed.json           Singapore's smokeshed + feasibility result
@@ -926,7 +926,7 @@ function fillYearSelects() {
 
 function fillMethod() {
   document.getElementById("method").innerHTML = `
-    <li><b>Right now:</b> fire hotspots from ${now.source}, ${now.days[0]} to ${now.through}, refreshed daily (last update ${now.updated}). "Normal" is the median for this month in ${FIRST_YEAR}–${lastYear - 1}, scaled to 7 days. Surge = 3× normal or more; above normal = 1.5×.</li>
+    <li><b>Right now:</b> fire hotspots from ${now.source}, ${now.days[0]} to ${now.through} (last update ${now.updated}). "Normal" is the median for this month in ${FIRST_YEAR}–${lastYear - 1}, scaled to 7 days. Surge = 3× normal or more; above normal = 1.5×.</li>
     <li><b>History:</b> NASA FIRMS hotspots: MODIS Terra (1 km, 2001–2012) and VIIRS S-NPP (375 m, 2013 on), vegetation fires only, low-confidence detections and known gas flares removed. Calendar data to ${meta.data_through}.</li>
     <li><b>Harmonizing:</b> VIIRS sees many more small fires than MODIS (worldwide ${meta.global_ratio}× as many). While both flew (${meta.overlap_years.join("–")}) we measured that ratio separately in each 10° region and converted older MODIS counts into VIIRS-equivalent counts, so every year is comparable. ${meta.ratio_check}
       <img src="docs/harmonization.png" alt="Chart: in 2013–2014, raw MODIS counts sit far below VIIRS; after conversion they line up with VIIRS in both Indonesia and California."

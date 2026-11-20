@@ -1,12 +1,12 @@
 """Fetch the last 7 days of fire hotspots worldwide -> data/processed/now.json
 
 Run:  python -m pipeline.build_now
-Needs: FIRMS_MAP_KEY (in .env locally; a GitHub Secret in the daily Action)
+Needs: FIRMS_MAP_KEY (in .env, see docs/API_SETUP.md)
 
 This is the "right now" data behind the page's status (Quiet / Normal /
-Above normal / Surge) and the fire dots on the map. A GitHub Action runs it
-every day (.github/workflows/site.yml), so the site stays current without
-anyone touching it. The 25-year calendar doesn't need daily updates.
+Above normal / Surge) and the fire dots on the map. To refresh the live site,
+run this, then commit data/processed/now.json and push (GitHub Pages
+republishes from main). The 25-year calendar doesn't need daily updates.
 
 Which satellite: all VIIRS instruments (on S-NPP, NOAA-20, NOAA-21) are
 identical, so we use whichever near-real-time feed is freshest, preferring

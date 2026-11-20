@@ -3,7 +3,7 @@
 > **A burning calendar for the people who breathe the smoke.** NASA Space Apps Challenge 2026: harmonized burning activity calendar.
 
 **Drop a pin anywhere on Earth** and get, in one click:
-1. **Right now:** is it burning more than normal? A status (Quiet / Normal / Above normal / Surge) from the last 7 days of NASA fire detections, updated daily, plus yesterday's real satellite image so you can see the smoke.
+1. **Right now:** is it burning more than normal? A status (Quiet / Normal / Above normal / Surge) from the last 7 days of NASA fire detections (the date range is shown on the page), plus yesterday's real satellite image so you can see the smoke.
 2. **History:** a harmonized MODIS + VIIRS fire calendar for that area, 2001 to now: a "usual year" row with the fire season marked, a **"compared with normal"** view that turns unusual months red (or blue if quieter), a "coming up" sentence for next month, the long-term trend, and a CSV download.
 3. **Famous fires:** one click on Indonesia 2015, Australia 2019–20, the Pantanal 2020, California 2020 or Canada 2023 shows that each one is the busiest month on record in our harmonized calendar.
 
@@ -35,7 +35,7 @@ python -m pipeline.fetch_recent      # this year, via the FIRMS API (needs FIRMS
 python -m pipeline.build_calendar    # -> data/processed/calendar/
 python -m pipeline.harmonization_chart  # -> docs/harmonization.png (proof the MODIS -> VIIRS conversion works)
 python -m pipeline.feasibility       # -> docs/feasibility.png + data/processed/smokeshed.json
-python -m pipeline.build_now         # last 7 days of fires -> data/processed/now.json (a GitHub Action runs this daily)
+python -m pipeline.build_now         # last 7 days of fires -> data/processed/now.json (rerun + push to refresh the site)
 python -m http.server 8000 --bind 127.0.0.1   # then open http://127.0.0.1:8000
 ```
 
